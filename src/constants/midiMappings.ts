@@ -37,4 +37,17 @@ export const CONTROLLER_MAPPINGS: { [key: string]: MidiMapping } = {
 		jogWheelDeckB: { channel: 2, cc: 33 }, // Jog wheel for deck B (CC 33, Channel 2)
 		crossfader: { channel: 7, cc: 31 }, // Crossfader (CC 63, Channel 7)
 	},
+	"Party-Mix-II": {
+		playDeckA: { channel: 1, note: 9 }, // Play button for deck A (NOTE 9, Channel 1)
+		playDeckB: { channel: 2, note: 9 }, // Play button for deck B (NOTE 9, Channel 2)
+		cueDeckA: { channel: 1, note: 10 }, // Cue button for deck A (NOTE 10, Channel 1)
+		cueDeckB: { channel: 2, note: 10 }, // Cue button for deck B (NOTE 10, Channel 2)
+		tempoDeckA: { channel: 1, cc: 23 }, // Tempo fader for deck A (CC 23, Channel 1)
+		tempoDeckB: { channel: 2, cc: 23 }, // Tempo fader for deck B (CC 23, Channel 2)
+		volumeDeckA: { channel: 1, cc: 20 }, // Volume fader for deck A (CC 20, Channel 1)
+		volumeDeckB: { channel: 2, cc: 20 }, // Volume fader for deck B (CC 20, Channel 2)
+		jogWheelDeckA: { channel: 1, cc: 22 }, // Jog wheel for deck A (CC 22, Channel 1)
+		jogWheelDeckB: { channel: 2, cc: 22 }, // Jog wheel for deck B (CC 22, Channel 2)
+		crossfader: { channel: 1, cc: 8 }, // Crossfader (CC 8, Channel 1)
+	},
 };
