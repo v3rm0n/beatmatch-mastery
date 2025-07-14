@@ -23,6 +23,7 @@ interface MidiControllerProps {
 	onDeckBVolumeChange: (volume: number) => void;
 	onDeckAJogWheel: (offset: number) => void;
 	onDeckBJogWheel: (offset: number) => void;
+	onCrossfaderChange: (position: number) => void;
 	deckAPlaying: boolean;
 	deckBPlaying: boolean;
 	maxBpmVariation: number;
