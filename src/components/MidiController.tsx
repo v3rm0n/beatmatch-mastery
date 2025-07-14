@@ -1,4 +1,5 @@
-import { Gamepad2, Zap, ZapOff } from "lucide-react";
+import { AlertTriangle, Gamepad2, Zap, ZapOff } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import {
@@ -27,6 +28,7 @@ interface MidiControllerProps {
 	deckAPlaying: boolean;
 	deckBPlaying: boolean;
 	maxBpmVariation: number;
+	gameStarted: boolean;
 }
 
 export const MidiController = (props: MidiControllerProps) => {
@@ -87,6 +89,21 @@ export const MidiController = (props: MidiControllerProps) => {
 					<div className="text-xs text-muted-foreground">
 						Mapping loaded: {Object.keys(midiMapping).length} controls mapped
 					</div>
+				)}
+
+				{isConnected && !props.gameStarted && (
+					<Alert>
+						<AlertTriangle className="h-4 w-4" />
+						<AlertDescription>
+							<strong>Setup Required:</strong> Before starting, please set your
+							controller to the initial position:
+							<ul className="mt-1 ml-4 list-disc text-xs">
+								<li>Move both volume faders to maximum position</li>
+								<li>Center both tempo/pitch faders (0% position)</li>
+								<li>Set crossfader to center position</li>
+							</ul>
+						</AlertDescription>
+					</Alert>
 				)}
 			</div>
 		</Card>

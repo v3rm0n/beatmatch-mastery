@@ -462,6 +462,7 @@ export const BeatmatchApp: React.FC = () => {
 
 				{/* MIDI Controller */}
 				<MidiController
+					gameStarted={gameState.phase !== "setup"}
 					onDeckAPlay={deckA.start}
 					onDeckBPlay={deckB.start}
 					onDeckAStop={deckA.stop}
