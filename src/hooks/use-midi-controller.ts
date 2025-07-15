@@ -58,8 +58,13 @@ class DeviceMidi implements Midi {
 }
 
 export const useMidiController = (callbacks: MidiControllerCallbacks) => {
-	const { midiDevices, selectedDevice, selectDevice, isConnected } =
-		useWebMidi();
+	const {
+		midiDevices,
+		selectedDevice,
+		selectDevice,
+		isConnected,
+		isSupported,
+	} = useWebMidi();
 	const [midiMapping, setMidiMapping] = useState<ControllerMapping>(null);
 	const [midiMappings, setMidiMappings] = useState<Manifest>([]);
 
@@ -190,5 +195,6 @@ export const useMidiController = (callbacks: MidiControllerCallbacks) => {
 		loadMapping,
 		resetMapping,
 		handleDeviceSelection,
+		isSupported,
 	};
 };

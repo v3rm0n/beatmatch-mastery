@@ -14,6 +14,7 @@ interface WebMidiContextType {
 	selectDevice: (device: MidiDevice) => void;
 	midiAccess: MIDIAccess | null;
 	isConnected: boolean;
+	isSupported: boolean;
 }
 
 const WebMidiContext = createContext<WebMidiContextType | null>(null);
@@ -29,6 +30,7 @@ export const WebMidiProvider: React.FC<WebMidiProviderProps> = ({
 	const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
 	const [selectedDevice, setSelectedDevice] = useState<MidiDevice | null>(null);
 	const [isConnected, setIsConnected] = useState(false);
+	const [isSupported, setIsSupported] = useState(true);
 
 	useEffect(() => {
 		const updateDevices = (access: MIDIAccess) => {
@@ -70,6 +72,9 @@ export const WebMidiProvider: React.FC<WebMidiProviderProps> = ({
 					access.onstatechange = () => {
 						updateDevices(access);
 					};
+					setIsSupported(true);
+				} else {
+					setIsSupported(false);
 				}
 			} catch (error) {
 				console.error("Failed to access MIDI devices:", error);
@@ -91,6 +96,7 @@ export const WebMidiProvider: React.FC<WebMidiProviderProps> = ({
 				selectDevice,
 				midiAccess,
 				isConnected,
+				isSupported,
 			}}
 		>
 			{children}
