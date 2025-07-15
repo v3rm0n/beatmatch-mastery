@@ -7,9 +7,10 @@ import { Card } from "@/components/ui/card";
 import { OffsetSlider } from "@/components/ui/offset-slider";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
+import type { DeckId } from "@/types/deck";
 
 interface DeckProps {
-	deckId: "A" | "B";
+	deckId: DeckId;
 	maxBpmVariation: number;
 	isPlaying: boolean;
 	tempo: number;

@@ -4,12 +4,14 @@
 	"version": "0.0.1",
 	"type": "module",
 	"scripts": {
-		"dev": "vite",
-		"build": "vite build",
+		"setup:controllers": "bash etc/mixxx_mappings.sh",
+		"dev": "npm run setup:controllers && vite",
+		"build": "npm run setup:controllers && vite build",
 		"lint": "npx @biomejs/biome check --write",
 		"preview": "vite preview"
 	},
 	"dependencies": {
+		"@rgrove/parse-xml": "^4.2.0",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"cmdk": "^1.0.0",

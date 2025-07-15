@@ -20,15 +20,22 @@ import { useToast } from "@/hooks/use-toast";
 import { Deck } from "./Deck";
 import { MidiController } from "./MidiController";
 
+interface _DeckState {
+	tempo: number;
+	tempoOffset: number;
+	jogWheelVelocity: number;
+	volume: number;
+}
+
 interface GameState {
 	phase: "setup" | "playing" | "finished";
 	selectedPattern: BeatPattern | null;
 	deckATempo: number;
 	deckATempoOffset: number;
-	deckAJogWheelVelocity: number;
+	deckAJogWheelOffset: number;
 	deckBTempo: number;
 	deckBTempoOffset: number;
-	deckBJogWheelVelocity: number;
+	deckBJogWheelOffset: number;
 	deckAVolume: number;
 	deckBVolume: number;
 	crossfaderPosition: number;
@@ -40,114 +47,36 @@ interface GameState {
 export const BeatmatchApp: React.FC = () => {
 	const { toast } = useToast();
 
-	const deckA = useAudioEngine();
-	const deckB = useAudioEngine();
-
-	const jogWheelStateA = useRef({
-		velocity: 0,
-		lastInputTime: 0,
-		animationFrameId: 0,
-	});
-
-	const jogWheelStateB = useRef({
-		velocity: 0,
-		lastInputTime: 0,
-		animationFrameId: 0,
-	});
+	const jogWheelTimeoutA = useRef<NodeJS.Timeout | null>(null);
+	const jogWheelTimeoutB = useRef<NodeJS.Timeout | null>(null);
 
 	useEffect(() => {
 		return () => {
-			// Cleanup animation frames
-			if (jogWheelStateA.current.animationFrameId) {
-				cancelAnimationFrame(jogWheelStateA.current.animationFrameId);
+			if (jogWheelTimeoutA.current) {
+				clearTimeout(jogWheelTimeoutA.current);
 			}
-			if (jogWheelStateB.current.animationFrameId) {
-				cancelAnimationFrame(jogWheelStateB.current.animationFrameId);
+			if (jogWheelTimeoutB.current) {
+				clearTimeout(jogWheelTimeoutB.current);
 			}
 		};
 	}, []);
 
-	const updateDeckTempo = (deck: "A" | "B") => {
-		const jogWheelState =
-			deck === "A" ? jogWheelStateA.current : jogWheelStateB.current;
-		const jogWheelPitchBend = jogWheelState.velocity * 8; // Same scaling as in the decay animation
-
-		if (deck === "A") {
-			const totalTempo =
-				gameState.deckATempo + gameState.deckATempoOffset + jogWheelPitchBend;
-			deckA.setTempo(totalTempo);
-		} else {
-			const totalTempo =
-				gameState.deckBTempo + gameState.deckBTempoOffset + jogWheelPitchBend;
-			deckB.setTempo(totalTempo);
-		}
+	const decks = {
+		A: useAudioEngine(),
+		B: useAudioEngine(),
 	};
 
-	const updateJogWheelVelocity = (deck: "A" | "B", inputVelocity: number) => {
-		const state =
-			deck === "A" ? jogWheelStateA.current : jogWheelStateB.current;
-
-		// Update velocity and timestamp
-		state.velocity = inputVelocity;
-		state.lastInputTime = Date.now();
-
-		// Cancel existing animation frame
-		if (state.animationFrameId) {
-			cancelAnimationFrame(state.animationFrameId);
-		}
-
-		// Start velocity decay animation
-		const decayAnimation = () => {
-			const now = Date.now();
-			const timeSinceInput = now - state.lastInputTime;
-
-			if (timeSinceInput > 50) {
-				// 50ms without input starts decay
-				// Smooth exponential decay
-				state.velocity *= 0.95; // Decay factor - adjust for feel
-
-				// Stop when velocity is very small
-				if (Math.abs(state.velocity) < 0.01) {
-					state.velocity = 0;
-				}
-			}
-
-			// Update the game state and apply tempo
-			if (deck === "A") {
-				setGameState((prev) => ({
-					...prev,
-					deckAJogWheelVelocity: state.velocity,
-				}));
-			} else {
-				setGameState((prev) => ({
-					...prev,
-					deckBJogWheelVelocity: state.velocity,
-				}));
-			}
-
-			// Apply the complete tempo calculation
-			updateDeckTempo(deck);
-
-			// Continue animation if there's still velocity
-			if (state.velocity !== 0) {
-				state.animationFrameId = requestAnimationFrame(decayAnimation);
-			}
-		};
-
-		decayAnimation();
-	};
-
-	const maxBpmVariation = 20;
+	const maxBpmVariation = 6;
 
 	const initialState: GameState = {
 		phase: "setup",
 		selectedPattern: null,
 		deckATempo: 120,
 		deckATempoOffset: 0,
-		deckAJogWheelVelocity: 0,
+		deckAJogWheelOffset: 0,
 		deckBTempo: 120,
 		deckBTempoOffset: 0,
-		deckBJogWheelVelocity: 0,
+		deckBJogWheelOffset: 0,
 		deckAVolume: 1.0,
 		deckBVolume: 1.0,
 		crossfaderPosition: 0.5,
@@ -159,6 +88,32 @@ export const BeatmatchApp: React.FC = () => {
 	const [gameState, setGameState] = useState<GameState>({
 		...initialState,
 	});
+
+	useEffect(() => {
+		const totalTempo =
+			gameState.deckATempo +
+			gameState.deckATempoOffset +
+			gameState.deckAJogWheelOffset;
+		decks.A.setTempo(totalTempo);
+	}, [
+		decks.A,
+		gameState.deckATempo,
+		gameState.deckATempoOffset,
+		gameState.deckAJogWheelOffset,
+	]);
+
+	useEffect(() => {
+		const totalTempo =
+			gameState.deckBTempo +
+			gameState.deckBTempoOffset +
+			gameState.deckBJogWheelOffset;
+		decks.B.setTempo(totalTempo);
+	}, [
+		decks.B,
+		gameState.deckBTempo,
+		gameState.deckBTempoOffset,
+		gameState.deckBJogWheelOffset,
+	]);
 
 	const generateRandomTempo = (baseTempo: number): number => {
 		const min = Math.max(80, baseTempo - maxBpmVariation);
@@ -187,13 +142,13 @@ export const BeatmatchApp: React.FC = () => {
 		}));
 
 		// Set up audio engines
-		deckA.setTempo(gameState.deckATempo + gameState.deckATempoOffset);
-		deckA.setPattern(gameState.selectedPattern.pattern);
-		deckA.setVolume(gameState.deckAVolume);
+		decks.A.setTempo(gameState.deckATempo);
+		decks.A.setPattern(gameState.selectedPattern.pattern);
+		decks.A.setVolume(gameState.deckAVolume);
 
-		deckB.setTempo(gameState.deckBTempo + gameState.deckBTempoOffset);
-		deckB.setPattern(gameState.selectedPattern.pattern);
-		deckB.setVolume(gameState.deckBVolume);
+		decks.B.setTempo(gameState.deckBTempo);
+		decks.B.setPattern(gameState.selectedPattern.pattern);
+		decks.B.setVolume(gameState.deckBVolume);
 
 		toast({
 			title: "Session started!",
@@ -203,8 +158,8 @@ export const BeatmatchApp: React.FC = () => {
 	};
 
 	const finishSession = () => {
-		deckA.stop();
-		deckB.stop();
+		decks.A.stop();
+		decks.B.stop();
 
 		const tempoDifference = Math.abs(
 			gameState.deckBTempo +
@@ -230,8 +185,8 @@ export const BeatmatchApp: React.FC = () => {
 	};
 
 	const resetSession = () => {
-		deckA.stop();
-		deckB.stop();
+		decks.A.stop();
+		decks.B.stop();
 		setGameState({
 			...initialState,
 		});
@@ -252,8 +207,8 @@ export const BeatmatchApp: React.FC = () => {
 		const finalDeckBVolume = deckBVolume * rightCurve;
 
 		// Update the actual audio engine volumes
-		deckA.setVolume(finalDeckAVolume);
-		deckB.setVolume(finalDeckBVolume);
+		decks.A.setVolume(finalDeckAVolume);
+		decks.B.setVolume(finalDeckBVolume);
 	};
 
 	const handleCrossfaderChange = (position: number) => {
@@ -463,36 +418,72 @@ export const BeatmatchApp: React.FC = () => {
 				{/* MIDI Controller */}
 				<MidiController
 					gameStarted={gameState.phase !== "setup"}
-					onDeckAPlay={deckA.start}
-					onDeckBPlay={deckB.start}
-					onDeckAStop={deckA.stop}
-					onDeckBStop={deckB.stop}
-					onDeckACue={deckA.start}
-					onDeckBCue={deckB.start}
-					onDeckAJogWheel={(offset) => {
-						updateJogWheelVelocity("A", offset);
+					onPlay={(deckId) => {
+						decks[deckId].start();
 					}}
-					onDeckBJogWheel={(offset) => {
-						updateJogWheelVelocity("B", offset);
+					onStop={(deckId) => {
+						decks[deckId].stop();
+					}}
+					onCue={(deckId) => {
+						decks[deckId].start();
+					}}
+					onJogWheel={(deckId, offset) => {
+						if (deckId === "A" && jogWheelTimeoutA.current) {
+							clearTimeout(jogWheelTimeoutA.current);
+						}
+						if (deckId === "B" && jogWheelTimeoutB.current) {
+							clearTimeout(jogWheelTimeoutB.current);
+						}
+						if (deckId === "A") {
+							setGameState((prev) => ({
+								...prev,
+								deckAJogWheelOffset: offset,
+							}));
+						}
+						if (deckId === "B") {
+							setGameState((prev) => ({
+								...prev,
+								deckBJogWheelOffset: offset,
+							}));
+						}
+
+						const resetJogWheel = () => {
+							if (deckId === "A") {
+								setGameState((prev) => ({ ...prev, deckAJogWheelOffset: 0 }));
+							}
+							if (deckId === "B") {
+								setGameState((prev) => ({ ...prev, deckBJogWheelOffset: 0 }));
+							}
+						};
+
+						const timeoutId = setTimeout(resetJogWheel, 60);
+
+						if (deckId === "A") {
+							jogWheelTimeoutA.current = timeoutId;
+						}
+						if (deckId === "B") {
+							jogWheelTimeoutB.current = timeoutId;
+						}
 					}}
 					onCrossfaderChange={handleCrossfaderChange}
-					onDeckATempoOffsetChange={(offset) => {
-						setGameState((prev) => ({ ...prev, deckATempoOffset: offset }));
-						updateDeckTempo("A");
+					onRateChange={(deckId, rate) => {
+						const offset = Math.round(-rate * maxBpmVariation * 10) / 10;
+						if (deckId === "A") {
+							setGameState((prev) => ({ ...prev, deckATempoOffset: offset }));
+						}
+						if (deckId === "B") {
+							setGameState((prev) => ({ ...prev, deckBTempoOffset: offset }));
+						}
 					}}
-					onDeckBTempoOffsetChange={(offset) => {
-						setGameState((prev) => ({ ...prev, deckBTempoOffset: offset }));
-						updateDeckTempo("B");
+					onVolumeChange={(deckId, volume) => {
+						if (deckId === "A") {
+							setGameState((prev) => ({ ...prev, deckAVolume: volume }));
+						}
+						if (deckId === "B") {
+							setGameState((prev) => ({ ...prev, deckBVolume: volume }));
+						}
 					}}
-					onDeckAVolumeChange={(volume) => {
-						setGameState((prev) => ({ ...prev, deckAVolume: volume }));
-					}}
-					onDeckBVolumeChange={(volume) => {
-						setGameState((prev) => ({ ...prev, deckBVolume: volume }));
-					}}
-					deckAPlaying={deckA.isPlaying}
-					deckBPlaying={deckB.isPlaying}
-					maxBpmVariation={maxBpmVariation}
+					isPlaying={(deckId) => decks[deckId].isPlaying}
 				/>
 
 				{/* DJ Decks */}
@@ -501,18 +492,17 @@ export const BeatmatchApp: React.FC = () => {
 						<Deck
 							deckId="A"
 							maxBpmVariation={maxBpmVariation}
-							isPlaying={deckA.isPlaying}
+							isPlaying={decks.A.isPlaying}
 							tempo={gameState.deckATempo}
 							tempoOffset={gameState.deckATempoOffset}
 							volume={gameState.deckAVolume}
-							currentBeat={deckA.currentBeat}
+							currentBeat={decks.A.currentBeat}
 							pattern={gameState.selectedPattern.pattern}
 							patternName={gameState.selectedPattern.name}
-							onPlay={deckA.start}
-							onStop={deckA.stop}
+							onPlay={decks.A.start}
+							onStop={decks.A.stop}
 							onTempoOffsetChange={(offset) => {
 								setGameState((prev) => ({ ...prev, deckATempoOffset: offset }));
-								deckA.setTempo(gameState.deckATempo + offset);
 							}}
 							onVolumeChange={(volume) => {
 								setGameState((prev) => ({ ...prev, deckAVolume: volume }));
@@ -522,19 +512,18 @@ export const BeatmatchApp: React.FC = () => {
 						<Deck
 							deckId="B"
 							maxBpmVariation={maxBpmVariation}
-							isPlaying={deckB.isPlaying}
+							isPlaying={decks.B.isPlaying}
 							tempo={gameState.deckBTempo}
 							tempoOffset={gameState.deckBTempoOffset}
 							volume={gameState.deckBVolume}
-							currentBeat={deckB.currentBeat}
+							currentBeat={decks.B.currentBeat}
 							pattern={gameState.selectedPattern.pattern}
 							patternName={gameState.selectedPattern.name}
 							isHidden={gameState.phase === "playing"}
-							onPlay={deckB.start}
-							onStop={deckB.stop}
+							onPlay={decks.B.start}
+							onStop={decks.B.stop}
 							onTempoOffsetChange={(offset) => {
 								setGameState((prev) => ({ ...prev, deckBTempoOffset: offset }));
-								deckB.setTempo(gameState.deckBTempo + offset);
 							}}
 							onVolumeChange={(volume) => {
 								setGameState((prev) => ({ ...prev, deckBVolume: volume }));

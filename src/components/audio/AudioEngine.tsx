@@ -293,7 +293,6 @@ export const useAudioEngine = (): AudioEngineHookReturn => {
 	};
 
 	const setTempo = (tempo: number) => {
-		console.log(tempo);
 		audioEngineRef.current?.setTempo(tempo);
 	};
 
