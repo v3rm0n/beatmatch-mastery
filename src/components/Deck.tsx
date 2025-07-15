@@ -1,4 +1,4 @@
-import { Disc3, Pause, Play, Volume2 } from "lucide-react";
+import { Disc3, Pause, Play, SkipBack, Volume2 } from "lucide-react";
 import type React from "react";
 import type { Beat } from "@/components/audio/AudioEngine";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +13,7 @@ interface DeckProps {
 	deckId: DeckId;
 	maxBpmVariation: number;
 	isPlaying: boolean;
+	jogOffset: number;
 	tempo: number;
 	tempoOffset: number;
 	volume: number;
@@ -21,6 +22,7 @@ interface DeckProps {
 	patternName: string;
 	isHidden?: boolean;
 	onPlay: () => void;
+	onCue: () => void;
 	onStop: () => void;
 	onTempoOffsetChange: (offset: number) => void;
 	onVolumeChange: (volume: number) => void;
@@ -30,6 +32,7 @@ export const Deck: React.FC<DeckProps> = ({
 	deckId,
 	maxBpmVariation,
 	isPlaying,
+	jogOffset,
 	tempo,
 	tempoOffset,
 	volume,
@@ -38,6 +41,7 @@ export const Deck: React.FC<DeckProps> = ({
 	patternName,
 	isHidden = false,
 	onPlay,
+	onCue,
 	onStop,
 	onTempoOffsetChange,
 	onVolumeChange,
@@ -69,6 +73,7 @@ export const Deck: React.FC<DeckProps> = ({
 							className={cn(
 								"w-8 h-8 transition-transform",
 								isPlaying && "animate-spin",
+								jogOffset !== 0 && "animate-wiggle",
 							)}
 						/>
 						<div
@@ -104,6 +109,15 @@ export const Deck: React.FC<DeckProps> = ({
 
 				{/* Transport Controls */}
 				<div className="flex items-center justify-center gap-4">
+					<Button
+						onClick={onCue}
+						variant="secondary"
+						size="lg"
+						className="px-8"
+					>
+						<SkipBack className="w-5 h-5 mr-2" />
+						Cue
+					</Button>
 					<Button
 						onClick={isPlaying ? onStop : onPlay}
 						variant={isPlaying ? "destructive" : "default"}

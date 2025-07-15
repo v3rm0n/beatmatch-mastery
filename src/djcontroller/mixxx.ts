@@ -285,7 +285,7 @@ class InScriptEngineProxy {
 
 	beginTimer(
 		interval: number,
-		scriptCode: () => any,
+		scriptCode: () => unknown,
 		oneShot?: boolean,
 	): number {
 		if (oneShot) {

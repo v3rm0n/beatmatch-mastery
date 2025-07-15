@@ -493,6 +493,7 @@ export const BeatmatchApp: React.FC = () => {
 							deckId="A"
 							maxBpmVariation={maxBpmVariation}
 							isPlaying={decks.A.isPlaying}
+							jogOffset={gameState.deckAJogWheelOffset}
 							tempo={gameState.deckATempo}
 							tempoOffset={gameState.deckATempoOffset}
 							volume={gameState.deckAVolume}
@@ -500,6 +501,7 @@ export const BeatmatchApp: React.FC = () => {
 							pattern={gameState.selectedPattern.pattern}
 							patternName={gameState.selectedPattern.name}
 							onPlay={decks.A.start}
+							onCue={decks.A.start}
 							onStop={decks.A.stop}
 							onTempoOffsetChange={(offset) => {
 								setGameState((prev) => ({ ...prev, deckATempoOffset: offset }));
@@ -513,6 +515,7 @@ export const BeatmatchApp: React.FC = () => {
 							deckId="B"
 							maxBpmVariation={maxBpmVariation}
 							isPlaying={decks.B.isPlaying}
+							jogOffset={gameState.deckBJogWheelOffset}
 							tempo={gameState.deckBTempo}
 							tempoOffset={gameState.deckBTempoOffset}
 							volume={gameState.deckBVolume}
@@ -521,6 +524,7 @@ export const BeatmatchApp: React.FC = () => {
 							patternName={gameState.selectedPattern.name}
 							isHidden={gameState.phase === "playing"}
 							onPlay={decks.B.start}
+							onCue={decks.B.start}
 							onStop={decks.B.stop}
 							onTempoOffsetChange={(offset) => {
 								setGameState((prev) => ({ ...prev, deckBTempoOffset: offset }));

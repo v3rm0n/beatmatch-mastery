@@ -43,7 +43,7 @@ export function evalScript(
 	jsSrc: string,
 	args: object = {},
 	returnVarName?: string,
-): any {
+): object {
 	// TODO: Global bindings a la 'varName = ...' still escape.
 	// We should investigate isolating the execution context more
 	// (web workers?) or at least rewrite them using a regex.
@@ -62,6 +62,6 @@ export function evalScript(
  * @param keyPath The path into the object
  * @returns The value keyed by this path in `value`
  */
-export function getByKeyPath(value: object, ...keyPath: string[]): any {
+export function getByKeyPath(value: object, ...keyPath: string[]): () => void {
 	return keyPath.reduce((acc, key) => (acc ? acc[key] : undefined), value);
 }
