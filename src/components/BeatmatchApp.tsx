@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Deck } from "./Deck";
+import { Footer } from "./Footer";
 import { MidiController } from "./MidiController";
 import { Input } from "./ui/input";
 
@@ -623,6 +624,8 @@ export const BeatmatchApp: React.FC = () => {
 						/>
 					</div>
 				)}
+
+				<Footer />
 			</div>
 		</div>
 	);
