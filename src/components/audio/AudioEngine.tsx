@@ -115,7 +115,7 @@ export class AudioEngine {
       let interval = 100;
 
       self.onmessage = function(e) {
-        if (e.data === "start") {
+        if (e.data === "start" && !timerID) {
           timerID = setInterval(() => self.postMessage("tick"), interval);
         } else if (e.data === "stop") {
           clearInterval(timerID);
