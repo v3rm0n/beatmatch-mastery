@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { Clap } from "@/components/audio/Clap";
 import { Hat } from "@/components/audio/Hat";
 import { Kick } from "@/components/audio/Kick";
 import { Snare } from "@/components/audio/Snare";
-import { Clap } from "@/components/audio/Clap";
 
 export type Beat = "kick" | "snare" | "hat" | "clap" | Beat[] | false;
 

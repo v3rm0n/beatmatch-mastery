@@ -1,9 +1,9 @@
 import {
 	AlertTriangle,
+	ExternalLink,
 	Gamepad2,
 	Zap,
 	ZapOff,
-	ExternalLink,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";

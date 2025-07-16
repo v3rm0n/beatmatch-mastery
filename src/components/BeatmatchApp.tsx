@@ -1,4 +1,4 @@
-import { Music, RotateCcw, Target, Trophy, Clock } from "lucide-react";
+import { Clock, Music, RotateCcw, Target, Trophy } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -19,6 +19,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Deck } from "./Deck";
 import { MidiController } from "./MidiController";
+import { Input } from "./ui/input";
 
 interface _DeckState {
 	tempo: number;
@@ -129,6 +130,19 @@ export const BeatmatchApp: React.FC = () => {
 			toast({
 				title: "Select a beat pattern",
 				description: "Please choose a beat pattern before starting.",
+				variant: "destructive",
+			});
+			return;
+		}
+
+		if (
+			gameState.deckATempo < 60 ||
+			gameState.deckATempo > 200 ||
+			gameState.deckATempo === 0
+		) {
+			toast({
+				title: "Invalid tempo",
+				description: "Base tempo must be between 60 and 200 BPM.",
 				variant: "destructive",
 			});
 			return;
@@ -348,57 +362,89 @@ export const BeatmatchApp: React.FC = () => {
 								</div>
 
 								<div className="space-y-2">
-									<label className="text-sm font-medium">
-										Base Tempo (BPM)
-									</label>
-									<Select
-										onValueChange={(tempo) => {
-											setGameState((prev) => ({
-												...prev,
-												deckATempo: parseInt(tempo),
-											}));
-										}}
-									>
-										<SelectTrigger>
-											<SelectValue placeholder="120" />
-										</SelectTrigger>
-										<SelectContent>
-											{[100, 110, 120, 128, 140, 150, 160, 170].map((bpm) => (
-												<SelectItem key={bpm} value={bpm.toString()}>
-													{bpm} BPM
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
+									<label className="text-sm font-medium">Base Tempo</label>
+									<div className="relative">
+										<Input
+											type="number"
+											min="60"
+											max="200"
+											step="0.1"
+											value={
+												gameState.deckATempo === 0 ? "" : gameState.deckATempo
+											}
+											onChange={(e) => {
+												const value = e.target.value;
+												if (value === "") {
+													setGameState((prev) => ({
+														...prev,
+														deckATempo: 0,
+													}));
+													return;
+												}
+												const tempo = parseFloat(value);
+												if (!Number.isNaN(tempo)) {
+													setGameState((prev) => ({
+														...prev,
+														deckATempo: tempo,
+													}));
+												}
+											}}
+											onBlur={(e) => {
+												const tempo = parseFloat(e.target.value);
+												if (
+													Number.isNaN(tempo) ||
+													tempo < 60 ||
+													tempo > 200 ||
+													e.target.value === ""
+												) {
+													setGameState((prev) => ({
+														...prev,
+														deckATempo: 120,
+													}));
+												}
+											}}
+											placeholder="120"
+											className="w-full pr-12"
+										/>
+										<div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+											<span className="text-sm text-muted-foreground">BPM</span>
+										</div>
+									</div>
 								</div>
 
 								<div className="space-y-2">
 									<label className="text-sm font-medium">
-										Max tempo variation (BPM)
+										Max tempo variation
 									</label>
-									<Select
-										onValueChange={(maxBpmVariation) => {
-											setGameState((prev) => ({
-												...prev,
-												maxBpmVariation: parseInt(maxBpmVariation),
-											}));
-										}}
-									>
-										<SelectTrigger>
-											<SelectValue
-												placeholder={`\u00B1 ${gameState.maxBpmVariation} BPM`}
-											/>
-										</SelectTrigger>
-										<SelectContent>
-											{[
-												6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-											].map((bpm) => (
-												<SelectItem key={bpm} value={bpm.toString()}>
-													{`\u00B1 ${bpm} BPM`}
-												</SelectItem>
-											))}
-										</SelectContent>
-									</Select>
+									<div className="relative">
+										<Select
+											onValueChange={(maxBpmVariation) => {
+												setGameState((prev) => ({
+													...prev,
+													maxBpmVariation: parseInt(maxBpmVariation),
+												}));
+											}}
+										>
+											<SelectTrigger className="pr-12">
+												<SelectValue
+													placeholder={`\u00B1 ${gameState.maxBpmVariation}`}
+												/>
+											</SelectTrigger>
+											<SelectContent>
+												{[
+													6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
+													20,
+												].map((bpm) => (
+													<SelectItem key={bpm} value={bpm.toString()}>
+														{`\u00B1 ${bpm}`}
+													</SelectItem>
+												))}
+											</SelectContent>
+										</Select>
+										<div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+											<span className="text-sm text-muted-foreground">BPM</span>
+										</div>
+									</div>
 								</div>
 							</div>
 						</div>
