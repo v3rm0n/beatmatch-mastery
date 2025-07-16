@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Hat } from "@/components/audio/Hat";
 import { Kick } from "@/components/audio/Kick";
 import { Snare } from "@/components/audio/Snare";
+import { Clap } from "@/components/audio/Clap";
 
 export type Beat = "kick" | "snare" | "hat" | "clap" | Beat[] | false;
 
@@ -9,7 +10,6 @@ export interface BeatPattern {
 	id: string;
 	name: string;
 	pattern: Beat[]; // Array of 16 beats (4/4 time)
-	drumTypes?: ("kick" | "snare")[];
 	description: string;
 }
 
@@ -36,6 +36,29 @@ export const BEAT_PATTERNS: BeatPattern[] = [
 			false,
 		],
 		description: "Classic house/techno kick pattern",
+	},
+	{
+		id: "four-on-floor-clap",
+		name: "4 on the Floor with clap",
+		pattern: [
+			"kick",
+			false,
+			false,
+			false,
+			["kick", "clap"],
+			false,
+			false,
+			false,
+			"kick",
+			false,
+			false,
+			false,
+			["kick", "clap"],
+			false,
+			false,
+			false,
+		],
+		description: "4 on the floor with claps",
 	},
 	{
 		id: "dnb",
@@ -97,6 +120,7 @@ export class AudioEngine {
 	private kick: Kick;
 	private snare: Snare;
 	private hat: Hat;
+	private clap: Clap;
 
 	constructor() {
 		this.audioContext =
@@ -106,6 +130,7 @@ export class AudioEngine {
 		this.kick = new Kick(this.audioContext);
 		this.snare = new Snare(this.audioContext);
 		this.hat = new Hat(this.audioContext);
+		this.clap = new Clap(this.audioContext);
 
 		// Create timer worker for precise scheduling
 		const workerBlob = new Blob(
@@ -150,6 +175,8 @@ export class AudioEngine {
 	setVolume(volume: number) {
 		this.kick.setVolume(volume);
 		this.snare.setVolume(volume);
+		this.hat.setVolume(volume);
+		this.clap.setVolume(volume);
 	}
 
 	private nextNote() {
@@ -165,6 +192,8 @@ export class AudioEngine {
 			this.snare.trigger(time);
 		} else if (beat === "hat") {
 			this.hat.trigger(time);
+		} else if (beat === "clap") {
+			this.clap.trigger(time);
 		}
 	}
 
