@@ -1,4 +1,4 @@
-import { Music, RotateCcw, Target, Trophy } from "lucide-react";
+import { Music, RotateCcw, Target, Trophy, Clock } from "lucide-react";
 import type React from "react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -29,7 +29,7 @@ interface _DeckState {
 
 interface GameState {
 	phase: "setup" | "playing" | "finished";
-	selectedPattern: BeatPattern | null;
+	selectedPattern: BeatPattern;
 	deckATempo: number;
 	deckATempoOffset: number;
 	deckAJogWheelOffset: number;
@@ -42,6 +42,7 @@ interface GameState {
 	score: number | null;
 	startTime: number | null;
 	sessionDuration: number;
+	maxBpmVariation: number;
 }
 
 export const BeatmatchApp: React.FC = () => {
@@ -66,11 +67,9 @@ export const BeatmatchApp: React.FC = () => {
 		B: useAudioEngine(),
 	};
 
-	const maxBpmVariation = 6;
-
 	const initialState: GameState = {
 		phase: "setup",
-		selectedPattern: null,
+		selectedPattern: BEAT_PATTERNS[0],
 		deckATempo: 120,
 		deckATempoOffset: 0,
 		deckAJogWheelOffset: 0,
@@ -83,6 +82,7 @@ export const BeatmatchApp: React.FC = () => {
 		score: null,
 		startTime: null,
 		sessionDuration: 0,
+		maxBpmVariation: 6,
 	};
 
 	const [gameState, setGameState] = useState<GameState>({
@@ -115,7 +115,10 @@ export const BeatmatchApp: React.FC = () => {
 		gameState.deckBJogWheelOffset,
 	]);
 
-	const generateRandomTempo = (baseTempo: number): number => {
+	const generateRandomTempo = (
+		baseTempo: number,
+		maxBpmVariation: number,
+	): number => {
 		const min = Math.max(80, baseTempo - maxBpmVariation);
 		const max = Math.min(180, baseTempo + maxBpmVariation);
 		return Math.round((Math.random() * (max - min) + min) * 10) / 10;
@@ -131,7 +134,10 @@ export const BeatmatchApp: React.FC = () => {
 			return;
 		}
 
-		const randomTempo = generateRandomTempo(gameState.deckATempo);
+		const randomTempo = generateRandomTempo(
+			gameState.deckATempo,
+			gameState.maxBpmVariation,
+		);
 
 		setGameState((prev) => ({
 			...prev,
@@ -270,6 +276,11 @@ export const BeatmatchApp: React.FC = () => {
 									</span>
 								</div>
 							)}
+
+							<div className="flex items-center gap-2">
+								<Clock className="w-4 h-4" />
+								<span className="text-sm">{`${gameState.deckATempo} \u00B1 ${gameState.maxBpmVariation} BPM`}</span>
+							</div>
 						</div>
 
 						<div className="flex items-center gap-4">
@@ -303,10 +314,11 @@ export const BeatmatchApp: React.FC = () => {
 						<div className="space-y-4">
 							<h3 className="font-semibold">Session Setup</h3>
 
-							<div className="grid md:grid-cols-2 gap-4">
+							<div className="grid md:grid-cols-3 gap-4">
 								<div className="space-y-2">
 									<label className="text-sm font-medium">Beat Pattern</label>
 									<Select
+										value={gameState.selectedPattern.id}
 										onValueChange={(patternId) => {
 											const pattern = BEAT_PATTERNS.find(
 												(p) => p.id === patternId,
@@ -318,7 +330,7 @@ export const BeatmatchApp: React.FC = () => {
 										}}
 									>
 										<SelectTrigger>
-											<SelectValue placeholder="Choose a beat pattern" />
+											<SelectValue />
 										</SelectTrigger>
 										<SelectContent>
 											{BEAT_PATTERNS.map((pattern) => (
@@ -354,6 +366,35 @@ export const BeatmatchApp: React.FC = () => {
 											{[100, 110, 120, 128, 140, 150, 160, 170].map((bpm) => (
 												<SelectItem key={bpm} value={bpm.toString()}>
 													{bpm} BPM
+												</SelectItem>
+											))}
+										</SelectContent>
+									</Select>
+								</div>
+
+								<div className="space-y-2">
+									<label className="text-sm font-medium">
+										Max tempo variation (BPM)
+									</label>
+									<Select
+										onValueChange={(maxBpmVariation) => {
+											setGameState((prev) => ({
+												...prev,
+												maxBpmVariation: parseInt(maxBpmVariation),
+											}));
+										}}
+									>
+										<SelectTrigger>
+											<SelectValue
+												placeholder={`\u00B1 ${gameState.maxBpmVariation} BPM`}
+											/>
+										</SelectTrigger>
+										<SelectContent>
+											{[
+												6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+											].map((bpm) => (
+												<SelectItem key={bpm} value={bpm.toString()}>
+													{`\u00B1 ${bpm} BPM`}
 												</SelectItem>
 											))}
 										</SelectContent>
@@ -467,7 +508,8 @@ export const BeatmatchApp: React.FC = () => {
 					}}
 					onCrossfaderChange={handleCrossfaderChange}
 					onRateChange={(deckId, rate) => {
-						const offset = Math.round(-rate * maxBpmVariation * 10) / 10;
+						const offset =
+							Math.round(-rate * gameState.maxBpmVariation * 10) / 10;
 						if (deckId === "A") {
 							setGameState((prev) => ({ ...prev, deckATempoOffset: offset }));
 						}
@@ -491,7 +533,7 @@ export const BeatmatchApp: React.FC = () => {
 					<div className="grid lg:grid-cols-2 gap-6">
 						<Deck
 							deckId="A"
-							maxBpmVariation={maxBpmVariation}
+							maxBpmVariation={gameState.maxBpmVariation}
 							isPlaying={decks.A.isPlaying}
 							jogOffset={gameState.deckAJogWheelOffset}
 							tempo={gameState.deckATempo}
@@ -513,7 +555,7 @@ export const BeatmatchApp: React.FC = () => {
 
 						<Deck
 							deckId="B"
-							maxBpmVariation={maxBpmVariation}
+							maxBpmVariation={gameState.maxBpmVariation}
 							isPlaying={decks.B.isPlaying}
 							jogOffset={gameState.deckBJogWheelOffset}
 							tempo={gameState.deckBTempo}
