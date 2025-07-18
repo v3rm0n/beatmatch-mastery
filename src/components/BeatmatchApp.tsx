@@ -265,8 +265,8 @@ export const BeatmatchApp: React.FC = () => {
 
 				{/* Game Status */}
 				<Card className="p-4">
-					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-4">
+					<div className="flex items-center justify-between gap-2">
+						<div className="flex items-center gap-1 sm:gap-4 min-w-0 flex-1">
 							<Badge
 								variant={
 									gameState.phase === "setup"
@@ -275,6 +275,7 @@ export const BeatmatchApp: React.FC = () => {
 											? "default"
 											: "outline"
 								}
+								className="shrink-0"
 							>
 								{gameState.phase === "setup"
 									? "Setup"
@@ -284,39 +285,57 @@ export const BeatmatchApp: React.FC = () => {
 							</Badge>
 
 							{gameState.selectedPattern && (
-								<div className="flex items-center gap-2">
-									<Music className="w-4 h-4" />
-									<span className="text-sm">
+								<div className="flex items-center gap-1 min-w-0 sm:flex">
+									<Music className="w-4 h-4 shrink-0" />
+									<span className="text-sm truncate">
 										{gameState.selectedPattern.name}
 									</span>
 								</div>
 							)}
 
-							<div className="flex items-center gap-2">
+							<div className="flex items-center gap-1 shrink-0">
 								<Clock className="w-4 h-4" />
-								<span className="text-sm">{`${gameState.deckATempo} \u00B1 ${gameState.maxBpmVariation} BPM`}</span>
+								<span className="text-xs sm:text-sm whitespace-nowrap">{`${gameState.deckATempo}±${gameState.maxBpmVariation}`}</span>
+								<span className="text-xs sm:text-sm hidden sm:inline">BPM</span>
 							</div>
 						</div>
 
-						<div className="flex items-center gap-4">
+						<div className="flex items-center shrink-0">
 							{gameState.phase === "setup" && (
-								<Button onClick={startSession} className="bg-gradient-primary">
-									<Target className="w-4 h-4 mr-2" />
-									Start Session
+								<Button
+									onClick={startSession}
+									className="bg-gradient-primary text-sm sm:text-base px-3 sm:px-4"
+									size="sm"
+								>
+									<Target className="w-4 h-4 sm:mr-2" />
+									<span className="hidden sm:inline">Start Session</span>
+									<span className="sm:hidden">Start</span>
 								</Button>
 							)}
 
 							{gameState.phase === "playing" && (
-								<Button onClick={finishSession} variant="outline">
-									<Trophy className="w-4 h-4 mr-2" />
-									Finish & Score
+								<Button
+									onClick={finishSession}
+									variant="outline"
+									className="text-sm sm:text-base px-3 sm:px-4"
+									size="sm"
+								>
+									<Trophy className="w-4 h-4 sm:mr-2" />
+									<span className="hidden sm:inline">Finish & Score</span>
+									<span className="sm:hidden">Finish</span>
 								</Button>
 							)}
 
 							{gameState.phase === "finished" && (
-								<Button onClick={resetSession} variant="outline">
-									<RotateCcw className="w-4 h-4 mr-2" />
-									New Session
+								<Button
+									onClick={resetSession}
+									variant="outline"
+									className="text-sm sm:text-base px-3 sm:px-4"
+									size="sm"
+								>
+									<RotateCcw className="w-4 h-4 sm:mr-2" />
+									<span className="hidden sm:inline">New Session</span>
+									<span className="sm:hidden">Reset</span>
 								</Button>
 							)}
 						</div>
@@ -344,8 +363,10 @@ export const BeatmatchApp: React.FC = () => {
 											}));
 										}}
 									>
-										<SelectTrigger>
-											<SelectValue />
+										<SelectTrigger className="[&>span]:line-clamp-none min-h-[2.5rem] h-auto items-start py-2 text-left [&>span]:text-left">
+											<SelectValue>
+												{gameState.selectedPattern?.name}
+											</SelectValue>
 										</SelectTrigger>
 										<SelectContent>
 											{BEAT_PATTERNS.map((pattern) => (
