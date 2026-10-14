@@ -10,7 +10,7 @@ import {
 import type { DeckId } from "@/types/deck";
 import type { MidiDevice } from "@/types/midi";
 
-interface MidiControllerCallbacks {
+export interface MidiControllerCallbacks {
 	onPlay: (deckId: DeckId) => void;
 	onStop: (deckId: DeckId) => void;
 	onCue: (deckId: DeckId) => void;
@@ -40,8 +40,7 @@ class DeviceMidi implements Midi {
 	}
 
 	sendSysexMsg(dataList: number[], length?: number): void {
-		const data = length !== undefined ? dataList.slice(0, length) : dataList;
-		this.#device.output.send(data);
+		this.send(dataList, length);
 	}
 
 	makeInputHandler(
@@ -101,10 +100,6 @@ export const useMidiController = (callbacks: MidiControllerCallbacks) => {
 			midiMapping.init();
 			setMidiMapping(midiMapping);
 		}
-	};
-
-	const resetMapping = () => {
-		setMidiMapping(null);
 	};
 
 	const autoDetectMapping = (device: MidiDevice) => {
@@ -193,7 +188,6 @@ export const useMidiController = (callbacks: MidiControllerCallbacks) => {
 		isConnected,
 		midiMapping,
 		loadMapping,
-		resetMapping,
 		handleDeviceSelection,
 		isSupported,
 	};

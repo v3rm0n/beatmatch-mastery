@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Clap } from "@/components/audio/Clap";
 import { Hat } from "@/components/audio/Hat";
+import type { Instrument } from "@/components/audio/Instrument";
 import { Kick } from "@/components/audio/Kick";
 import { Snare } from "@/components/audio/Snare";
 
@@ -115,42 +116,33 @@ export class AudioEngine {
 	private tempo: number = 120;
 	private currentNote: number = 0;
 	private pattern: Beat[] = [];
-	private timerWorker: Worker | null = null;
-	private noteQueue: Array<{ note: number; time: number }> = [];
-	private kick: Kick;
-	private snare: Snare;
-	private hat: Hat;
-	private clap: Clap;
+	private timerWorker: Worker;
+	private instruments: Record<"kick" | "snare" | "hat" | "clap", Instrument>;
 
 	constructor() {
 		this.audioContext =
 			new //biome-ignore lint/suspicious/noExplicitAny: Need to check for webkitAudioContext
 			(window.AudioContext || (window as any).webkitAudioContext)();
 
-		this.kick = new Kick(this.audioContext);
-		this.snare = new Snare(this.audioContext);
-		this.hat = new Hat(this.audioContext);
-		this.clap = new Clap(this.audioContext);
+		this.instruments = {
+			kick: new Kick(this.audioContext),
+			snare: new Snare(this.audioContext),
+			hat: new Hat(this.audioContext),
+			clap: new Clap(this.audioContext),
+		};
 
 		// Create timer worker for precise scheduling
 		const workerBlob = new Blob(
 			[
 				`
       let timerID = null;
-      let interval = 100;
 
       self.onmessage = function(e) {
         if (e.data === "start" && !timerID) {
-          timerID = setInterval(() => self.postMessage("tick"), interval);
+          timerID = setInterval(() => self.postMessage("tick"), 100);
         } else if (e.data === "stop") {
           clearInterval(timerID);
           timerID = null;
-        } else if (e.data.interval) {
-          interval = e.data.interval;
-          if (timerID) {
-            clearInterval(timerID);
-            timerID = setInterval(() => self.postMessage("tick"), interval);
-          }
         }
       };
     `,
@@ -173,10 +165,9 @@ export class AudioEngine {
 	}
 
 	setVolume(volume: number) {
-		this.kick.setVolume(volume);
-		this.snare.setVolume(volume);
-		this.hat.setVolume(volume);
-		this.clap.setVolume(volume);
+		for (const instrument of Object.values(this.instruments)) {
+			instrument.setVolume(volume);
+		}
 	}
 
 	private nextNote() {
@@ -186,20 +177,12 @@ export class AudioEngine {
 	}
 
 	private scheduleBeat(beat: Beat, time: number) {
-		if (beat === "kick") {
-			this.kick.trigger(time);
-		} else if (beat === "snare") {
-			this.snare.trigger(time);
-		} else if (beat === "hat") {
-			this.hat.trigger(time);
-		} else if (beat === "clap") {
-			this.clap.trigger(time);
+		if (typeof beat === "string") {
+			this.instruments[beat]?.trigger(time);
 		}
 	}
 
 	private scheduleNote(beatNumber: number, time: number) {
-		this.noteQueue.push({ note: beatNumber, time: time });
-
 		const beat = this.pattern[beatNumber];
 		if (Array.isArray(beat)) {
 			beat.forEach((b) => this.scheduleBeat(b, time));
@@ -232,7 +215,7 @@ export class AudioEngine {
 
 			this.currentNote = 0;
 			this.nextNoteTime = this.audioContext.currentTime;
-			this.timerWorker?.postMessage("start");
+			this.timerWorker.postMessage("start");
 
 			console.log("Audio engine started, pattern length:", this.pattern.length);
 		} catch (error) {
@@ -241,37 +224,21 @@ export class AudioEngine {
 	}
 
 	stop() {
-		this.timerWorker?.postMessage("stop");
-		this.noteQueue = [];
+		this.timerWorker.postMessage("stop");
 	}
 
 	getCurrentBeat(): number {
 		return this.currentNote;
 	}
 
-	getNoteQueue() {
-		return this.noteQueue;
-	}
-
 	dispose() {
 		this.stop();
-		this.timerWorker?.terminate();
+		this.timerWorker.terminate();
 		this.audioContext.close();
 	}
 }
 
-interface AudioEngineHookReturn {
-	audioEngine: AudioEngine | null;
-	isPlaying: boolean;
-	currentBeat: number;
-	start: () => void;
-	stop: () => void;
-	setTempo: (tempo: number) => void;
-	setPattern: (pattern: Beat[]) => void;
-	setVolume: (volume: number) => void;
-}
-
-export const useAudioEngine = (): AudioEngineHookReturn => {
+export const useAudioEngine = () => {
 	const audioEngineRef = useRef<AudioEngine | null>(null);
 	const [isPlaying, setIsPlaying] = useState(false);
 	const [currentBeat, setCurrentBeat] = useState(0);
@@ -321,26 +288,14 @@ export const useAudioEngine = (): AudioEngineHookReturn => {
 		}
 	};
 
-	const setTempo = (tempo: number) => {
-		audioEngineRef.current?.setTempo(tempo);
-	};
-
-	const setPattern = (pattern: Beat[]) => {
-		audioEngineRef.current?.setPattern(pattern);
-	};
-
-	const setVolume = (volume: number) => {
-		audioEngineRef.current?.setVolume(volume);
-	};
-
 	return {
-		audioEngine: audioEngineRef.current,
 		isPlaying,
 		currentBeat,
 		start,
 		stop,
-		setTempo,
-		setPattern,
-		setVolume,
+		setTempo: (tempo: number) => audioEngineRef.current?.setTempo(tempo),
+		setPattern: (pattern: Beat[]) =>
+			audioEngineRef.current?.setPattern(pattern),
+		setVolume: (volume: number) => audioEngineRef.current?.setVolume(volume),
 	};
 };

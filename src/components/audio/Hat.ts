@@ -12,7 +12,7 @@ export class Hat implements Instrument {
 	public fxAmount: number;
 	private panner: StereoPannerNode;
 
-	constructor(ctx) {
+	constructor(ctx: AudioContext) {
 		this.ctx = ctx;
 		this.ratios = [1, 1.342, 1.2312, 1.6532, 1.9523, 2.1523];
 		this.tone = 130.81;
@@ -38,7 +38,7 @@ export class Hat implements Instrument {
 		this.panner.connect(this.ctx.destination);
 	}
 
-	trigger(time) {
+	trigger(time: number) {
 		if (this.volume === 0) {
 			return;
 		}
@@ -67,14 +67,7 @@ export class Hat implements Instrument {
 		);
 	}
 
-	setTone = (tone: number) => {
-		this.tone = tone;
-	};
 	setVolume = (vol: number) => {
 		this.volume = vol;
-	};
-
-	setFXAmount = (amount: number) => {
-		this.fxAmount = amount;
 	};
 }

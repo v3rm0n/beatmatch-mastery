@@ -15,18 +15,12 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import { useMidiController } from "@/hooks/use-midi-controller";
-import type { DeckId } from "@/types/deck";
+import {
+	type MidiControllerCallbacks,
+	useMidiController,
+} from "@/hooks/use-midi-controller";
 
-interface MidiControllerProps {
-	onPlay: (deckId: DeckId) => void;
-	onStop: (deckId: DeckId) => void;
-	onCue: (deckId: DeckId) => void;
-	onRateChange: (deckId: DeckId, rate: number) => void;
-	onVolumeChange: (deckId: DeckId, volume: number) => void;
-	onJogWheel: (deckId: DeckId, offset: number) => void;
-	onCrossfaderChange: (position: number) => void;
-	isPlaying(deckId: DeckId): boolean;
+interface MidiControllerProps extends MidiControllerCallbacks {
 	gameStarted: boolean;
 }
 

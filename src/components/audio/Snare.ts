@@ -1,4 +1,7 @@
-import type { Instrument } from "@/components/audio/Instrument";
+import {
+	createNoiseBuffer,
+	type Instrument,
+} from "@/components/audio/Instrument";
 
 export class Snare implements Instrument {
 	private ctx: AudioContext;
@@ -9,8 +12,7 @@ export class Snare implements Instrument {
 	private osc: OscillatorNode;
 	private oscEnvelope: GainNode;
 	public volume: number;
-	public fxAmount: number;
-	constructor(ctx) {
+	constructor(ctx: AudioContext) {
 		this.ctx = ctx;
 		this.tone = 100;
 		this.decay = 0.05;
@@ -19,7 +21,7 @@ export class Snare implements Instrument {
 
 	setup() {
 		this.noise = this.ctx.createBufferSource();
-		this.noise.buffer = this.noiseBuffer();
+		this.noise.buffer = createNoiseBuffer(this.ctx);
 
 		var noiseFilter = this.ctx.createBiquadFilter();
 		noiseFilter.type = "highpass";
@@ -37,18 +39,6 @@ export class Snare implements Instrument {
 		this.oscEnvelope = this.ctx.createGain();
 		this.osc.connect(this.oscEnvelope);
 		this.oscEnvelope.connect(this.ctx.destination);
-	}
-
-	noiseBuffer() {
-		var bufferSize = this.ctx.sampleRate;
-		var buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-		var output = buffer.getChannelData(0);
-
-		for (let i = 0; i < bufferSize; i++) {
-			output[i] = Math.random() * 2 - 1;
-		}
-
-		return buffer;
 	}
 
 	trigger(time: number) {
@@ -75,13 +65,7 @@ export class Snare implements Instrument {
 		this.noise.stop(time + this.decay);
 	}
 
-	setTone = (tone: number) => {
-		this.tone = tone;
-	};
 	setVolume = (vol: number) => {
 		this.volume = vol;
-	};
-	setFXAmount = (amount: number) => {
-		this.fxAmount = amount;
 	};
 }

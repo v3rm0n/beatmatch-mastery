@@ -50,15 +50,6 @@ export interface ControllerMapping {
 	 */
 	handleIncoming(msg: MidiMessage): Action[];
 
-	/**
-	 * Converts the given output action to MIDI
-	 * messages. Note that this method is
-	 * _not_ pure and may update internal state.
-	 *
-	 * @param output The output action to be sent
-	 */
-	prepareOutgoing(output: never): MidiMessage[];
-
 	init(): void;
 }
 
@@ -125,14 +116,6 @@ function parseControlMapping(xml: XmlElement): ControlMapping {
 	};
 }
 
-function parseOutputMapping(xml: XmlElement): OutputMapping {
-	// TODO
-	const _childs = xmlChildrenToObject(xml);
-	return {
-		...parseBaseMapping(xml),
-	};
-}
-
 function parseScriptFile(xml: XmlElement): ScriptFile {
 	const attrs = xml.attributes;
 	return {
@@ -159,7 +142,7 @@ function parseMidiMapping(xml: XmlDocument): MidiMapping {
 			) ?? [],
 		outputs:
 			controller?.outputs?.children.flatMap((c) =>
-				isXmlElement(c) ? [parseOutputMapping(c)] : [],
+				isXmlElement(c) ? [parseBaseMapping(c)] : [],
 			) ?? [],
 	};
 }
@@ -455,11 +438,6 @@ export class MixxxControllerMapping implements ControllerMapping {
 		}
 
 		// Fall back to no actions
-		return [];
-	}
-
-	prepareOutgoing(_output: never): MidiMessage[] {
-		// TODO
 		return [];
 	}
 }

@@ -1,4 +1,7 @@
-import type { Instrument } from "@/components/audio/Instrument";
+import {
+	createNoiseBuffer,
+	type Instrument,
+} from "@/components/audio/Instrument";
 
 export class Clap implements Instrument {
 	public tone: number;
@@ -22,20 +25,9 @@ export class Clap implements Instrument {
 		this.fxAmount = 0;
 	}
 
-	noiseBuffer() {
-		var bufferSize = this.ctx.sampleRate;
-		var buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-		var output = buffer.getChannelData(0);
-
-		for (let i = 0; i < bufferSize; i++) {
-			output[i] = Math.random() * 2 - 1;
-		}
-		return buffer;
-	}
-
 	setup() {
 		this.noise = this.ctx.createBufferSource();
-		this.noise.buffer = this.noiseBuffer();
+		this.noise.buffer = createNoiseBuffer(this.ctx);
 		this.filter = this.ctx.createBiquadFilter();
 		this.filter.type = "bandpass";
 		this.filter.frequency.value = this.tone * 2;
@@ -79,15 +71,7 @@ export class Clap implements Instrument {
 		this.noise.stop(time + this.decay);
 	};
 
-	setTone = (tone: number) => {
-		this.tone = tone;
-	};
-
 	setVolume = (volume: number) => {
 		this.volume = volume;
-	};
-
-	setFXAmount = (amount: number) => {
-		this.fxAmount = amount;
 	};
 }

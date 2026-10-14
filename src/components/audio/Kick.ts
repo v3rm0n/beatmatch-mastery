@@ -65,15 +65,7 @@ export class Kick implements Instrument {
 		this.osc.stop(time + this.decay + 0.1);
 	}
 
-	setTone = (tone: number) => {
-		this.tone = tone;
-	};
-
 	setVolume = (vol: number) => {
 		this.volume = vol;
-	};
-
-	setFXAmount = (amount: number) => {
-		this.fxAmount = amount;
 	};
 }

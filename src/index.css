@@ -51,14 +51,11 @@
 			hsl(var(--card)),
 			hsl(var(--secondary))
 		);
-		--shadow-glow: 0 0 30px hsl(var(--primary-glow) / 0.3);
 		--shadow-deck: 0 8px 32px hsl(0 0% 0% / 0.5);
 
 		/* Beat visualization colors */
 		--beat-active: 268 83% 58%;
 		--beat-inactive: 210 15% 25%;
-		--beat-sync: 142 76% 36%;
-		--beat-warning: 45 93% 58%;
 	}
 }
 

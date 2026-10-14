@@ -17,29 +17,23 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { DECK_IDS, type DeckId } from "@/types/deck";
 import { Deck } from "./Deck";
 import { Footer } from "./Footer";
 import { MidiController } from "./MidiController";
 import { Input } from "./ui/input";
 
-interface _DeckState {
+interface DeckState {
 	tempo: number;
 	tempoOffset: number;
-	jogWheelVelocity: number;
+	jogWheelOffset: number;
 	volume: number;
 }
 
 interface GameState {
 	phase: "setup" | "playing" | "finished";
 	selectedPattern: BeatPattern;
-	deckATempo: number;
-	deckATempoOffset: number;
-	deckAJogWheelOffset: number;
-	deckBTempo: number;
-	deckBTempoOffset: number;
-	deckBJogWheelOffset: number;
-	deckAVolume: number;
-	deckBVolume: number;
+	decks: Record<DeckId, DeckState>;
 	crossfaderPosition: number;
 	score: number | null;
 	startTime: number | null;
@@ -47,19 +41,36 @@ interface GameState {
 	maxBpmVariation: number;
 }
 
+const INITIAL_STATE: GameState = {
+	phase: "setup",
+	selectedPattern: BEAT_PATTERNS[0],
+	decks: {
+		A: { tempo: 120, tempoOffset: 0, jogWheelOffset: 0, volume: 1 },
+		B: { tempo: 120, tempoOffset: 0, jogWheelOffset: 0, volume: 1 },
+	},
+	crossfaderPosition: 0.5,
+	score: null,
+	startTime: null,
+	sessionDuration: 0,
+	maxBpmVariation: 6,
+};
+
+const generateRandomTempo = (baseTempo: number, maxBpmVariation: number) => {
+	const min = Math.max(80, baseTempo - maxBpmVariation);
+	const max = Math.min(180, baseTempo + maxBpmVariation);
+	return Math.round((Math.random() * (max - min) + min) * 10) / 10;
+};
+
 export const BeatmatchApp: React.FC = () => {
 	const { toast } = useToast();
-
-	const jogWheelTimeoutA = useRef<NodeJS.Timeout | null>(null);
-	const jogWheelTimeoutB = useRef<NodeJS.Timeout | null>(null);
+	const jogWheelTimeouts = useRef<
+		Record<DeckId, ReturnType<typeof setTimeout> | null>
+	>({ A: null, B: null });
 
 	useEffect(() => {
 		return () => {
-			if (jogWheelTimeoutA.current) {
-				clearTimeout(jogWheelTimeoutA.current);
-			}
-			if (jogWheelTimeoutB.current) {
-				clearTimeout(jogWheelTimeoutB.current);
+			for (const deckId of DECK_IDS) {
+				clearTimeout(jogWheelTimeouts.current[deckId]);
 			}
 		};
 	}, []);
@@ -69,62 +80,26 @@ export const BeatmatchApp: React.FC = () => {
 		B: useAudioEngine(),
 	};
 
-	const initialState: GameState = {
-		phase: "setup",
-		selectedPattern: BEAT_PATTERNS[0],
-		deckATempo: 120,
-		deckATempoOffset: 0,
-		deckAJogWheelOffset: 0,
-		deckBTempo: 120,
-		deckBTempoOffset: 0,
-		deckBJogWheelOffset: 0,
-		deckAVolume: 1.0,
-		deckBVolume: 1.0,
-		crossfaderPosition: 0.5,
-		score: null,
-		startTime: null,
-		sessionDuration: 0,
-		maxBpmVariation: 6,
+	const [gameState, setGameState] = useState<GameState>(INITIAL_STATE);
+	const { A: deckA, B: deckB } = gameState.decks;
+	const tempoDifference = Math.abs(
+		deckB.tempo + deckB.tempoOffset - (deckA.tempo + deckA.tempoOffset),
+	);
+
+	const updateDeck = (deckId: DeckId, changes: Partial<DeckState>) => {
+		setGameState((prev) => ({
+			...prev,
+			decks: {
+				...prev.decks,
+				[deckId]: { ...prev.decks[deckId], ...changes },
+			},
+		}));
 	};
 
-	const [gameState, setGameState] = useState<GameState>({
-		...initialState,
-	});
-
 	useEffect(() => {
-		const totalTempo =
-			gameState.deckATempo +
-			gameState.deckATempoOffset +
-			gameState.deckAJogWheelOffset;
-		decks.A.setTempo(totalTempo);
-	}, [
-		decks.A,
-		gameState.deckATempo,
-		gameState.deckATempoOffset,
-		gameState.deckAJogWheelOffset,
-	]);
-
-	useEffect(() => {
-		const totalTempo =
-			gameState.deckBTempo +
-			gameState.deckBTempoOffset +
-			gameState.deckBJogWheelOffset;
-		decks.B.setTempo(totalTempo);
-	}, [
-		decks.B,
-		gameState.deckBTempo,
-		gameState.deckBTempoOffset,
-		gameState.deckBJogWheelOffset,
-	]);
-
-	const generateRandomTempo = (
-		baseTempo: number,
-		maxBpmVariation: number,
-	): number => {
-		const min = Math.max(80, baseTempo - maxBpmVariation);
-		const max = Math.min(180, baseTempo + maxBpmVariation);
-		return Math.round((Math.random() * (max - min) + min) * 10) / 10;
-	};
+		decks.A.setTempo(deckA.tempo + deckA.tempoOffset + deckA.jogWheelOffset);
+		decks.B.setTempo(deckB.tempo + deckB.tempoOffset + deckB.jogWheelOffset);
+	}, [decks.A, decks.B, deckA, deckB]);
 
 	const startSession = () => {
 		if (!gameState.selectedPattern) {
@@ -136,11 +111,7 @@ export const BeatmatchApp: React.FC = () => {
 			return;
 		}
 
-		if (
-			gameState.deckATempo < 60 ||
-			gameState.deckATempo > 200 ||
-			gameState.deckATempo === 0
-		) {
+		if (deckA.tempo < 60 || deckA.tempo > 200) {
 			toast({
 				title: "Invalid tempo",
 				description: "Base tempo must be between 60 and 200 BPM.",
@@ -150,26 +121,26 @@ export const BeatmatchApp: React.FC = () => {
 		}
 
 		const randomTempo = generateRandomTempo(
-			gameState.deckATempo,
+			deckA.tempo,
 			gameState.maxBpmVariation,
 		);
 
 		setGameState((prev) => ({
 			...prev,
 			phase: "playing",
-			deckBTempo: randomTempo,
+			decks: {
+				...prev.decks,
+				B: { ...prev.decks.B, tempo: randomTempo },
+			},
 			startTime: Date.now(),
 			score: null,
 		}));
 
-		// Set up audio engines
-		decks.A.setTempo(gameState.deckATempo);
-		decks.A.setPattern(gameState.selectedPattern.pattern);
-		decks.A.setVolume(gameState.deckAVolume);
-
-		decks.B.setTempo(gameState.deckBTempo);
-		decks.B.setPattern(gameState.selectedPattern.pattern);
-		decks.B.setVolume(gameState.deckBVolume);
+		for (const deckId of DECK_IDS) {
+			decks[deckId].setTempo(gameState.decks[deckId].tempo);
+			decks[deckId].setPattern(gameState.selectedPattern.pattern);
+			decks[deckId].setVolume(gameState.decks[deckId].volume);
+		}
 
 		toast({
 			title: "Session started!",
@@ -182,11 +153,6 @@ export const BeatmatchApp: React.FC = () => {
 		decks.A.stop();
 		decks.B.stop();
 
-		const tempoDifference = Math.abs(
-			gameState.deckBTempo +
-				gameState.deckBTempoOffset -
-				(gameState.deckATempo + gameState.deckATempoOffset),
-		);
 		const accuracy = Math.max(0, 100 - tempoDifference * 2); // 2% penalty per BPM difference
 		const duration = gameState.startTime
 			? (Date.now() - gameState.startTime) / 1000
@@ -208,48 +174,28 @@ export const BeatmatchApp: React.FC = () => {
 	const resetSession = () => {
 		decks.A.stop();
 		decks.B.stop();
-		setGameState({
-			...initialState,
-		});
+		setGameState(INITIAL_STATE);
 	};
 
-	// Crossfader logic: applies crossfader curve to individual deck volumes
 	const applyCrossfader = (
 		deckAVolume: number,
 		deckBVolume: number,
 		position: number,
 	) => {
-		// Crossfader curve: 0.0 = full left (deck A), 0.5 = center, 1.0 = full right (deck B)
-		const leftCurve = position <= 0.5 ? 1.0 : 2.0 * (1.0 - position);
-		const rightCurve = position >= 0.5 ? 1.0 : 2.0 * position;
-
-		// Apply crossfader curve to the current individual deck volumes
-		const finalDeckAVolume = deckAVolume * leftCurve;
-		const finalDeckBVolume = deckBVolume * rightCurve;
-
-		// Update the actual audio engine volumes
-		decks.A.setVolume(finalDeckAVolume);
-		decks.B.setVolume(finalDeckBVolume);
+		// Both decks retain full volume at the center of the crossfader.
+		decks.A.setVolume(deckAVolume * (position <= 0.5 ? 1 : 2 * (1 - position)));
+		decks.B.setVolume(deckBVolume * (position >= 0.5 ? 1 : 2 * position));
 	};
 
 	const handleCrossfaderChange = (position: number) => {
 		setGameState((prev) => ({ ...prev, crossfaderPosition: position }));
-		applyCrossfader(gameState.deckAVolume, gameState.deckBVolume, position);
+		applyCrossfader(deckA.volume, deckB.volume, position);
 	};
 
-	// Apply crossfader whenever individual deck volumes
 	//biome-ignore lint/correctness/useExhaustiveDependencies: Includes everything that applyCrossfader depends on
 	useEffect(() => {
-		applyCrossfader(
-			gameState.deckAVolume,
-			gameState.deckBVolume,
-			gameState.crossfaderPosition,
-		);
-	}, [
-		gameState.deckAVolume,
-		gameState.deckBVolume,
-		gameState.crossfaderPosition,
-	]);
+		applyCrossfader(deckA.volume, deckB.volume, gameState.crossfaderPosition);
+	}, [deckA.volume, deckB.volume, gameState.crossfaderPosition]);
 
 	return (
 		<div className="min-h-screen bg-background p-4">
@@ -295,7 +241,7 @@ export const BeatmatchApp: React.FC = () => {
 
 							<div className="flex items-center gap-1 shrink-0">
 								<Clock className="w-4 h-4" />
-								<span className="text-xs sm:text-sm whitespace-nowrap">{`${gameState.deckATempo}±${gameState.maxBpmVariation}`}</span>
+								<span className="text-xs sm:text-sm whitespace-nowrap">{`${deckA.tempo}±${gameState.maxBpmVariation}`}</span>
 								<span className="text-xs sm:text-sm hidden sm:inline">BPM</span>
 							</div>
 						</div>
@@ -391,24 +337,16 @@ export const BeatmatchApp: React.FC = () => {
 											min="60"
 											max="200"
 											step="0.1"
-											value={
-												gameState.deckATempo === 0 ? "" : gameState.deckATempo
-											}
+											value={deckA.tempo === 0 ? "" : deckA.tempo}
 											onChange={(e) => {
 												const value = e.target.value;
 												if (value === "") {
-													setGameState((prev) => ({
-														...prev,
-														deckATempo: 0,
-													}));
+													updateDeck("A", { tempo: 0 });
 													return;
 												}
 												const tempo = parseFloat(value);
 												if (!Number.isNaN(tempo)) {
-													setGameState((prev) => ({
-														...prev,
-														deckATempo: tempo,
-													}));
+													updateDeck("A", { tempo });
 												}
 											}}
 											onBlur={(e) => {
@@ -419,10 +357,7 @@ export const BeatmatchApp: React.FC = () => {
 													tempo > 200 ||
 													e.target.value === ""
 												) {
-													setGameState((prev) => ({
-														...prev,
-														deckATempo: 120,
-													}));
+													updateDeck("A", { tempo: 120 });
 												}
 											}}
 											placeholder="120"
@@ -490,9 +425,9 @@ export const BeatmatchApp: React.FC = () => {
 								<div className="text-center">
 									<div className="text-lg font-mono">
 										{(
-											gameState.deckATempo +
-											gameState.deckATempoOffset +
-											-gameState.deckBTempoOffset
+											deckA.tempo +
+											deckA.tempoOffset -
+											deckB.tempoOffset
 										).toFixed(1)}{" "}
 										BPM
 									</div>
@@ -503,7 +438,7 @@ export const BeatmatchApp: React.FC = () => {
 
 								<div className="text-center">
 									<div className="text-lg font-mono text-accent">
-										{gameState.deckBTempo.toFixed(1)} BPM
+										{deckB.tempo.toFixed(1)} BPM
 									</div>
 									<div className="text-sm text-muted-foreground">
 										Actual tempo
@@ -512,13 +447,7 @@ export const BeatmatchApp: React.FC = () => {
 							</div>
 
 							<div className="text-sm text-muted-foreground">
-								Difference:{" "}
-								{Math.abs(
-									gameState.deckBTempo +
-										gameState.deckBTempoOffset -
-										(gameState.deckATempo + gameState.deckATempoOffset),
-								).toFixed(1)}{" "}
-								BPM
+								Difference: {tempoDifference.toFixed(1)} BPM
 							</div>
 						</div>
 					</Card>
@@ -527,122 +456,52 @@ export const BeatmatchApp: React.FC = () => {
 				{/* MIDI Controller */}
 				<MidiController
 					gameStarted={gameState.phase !== "setup"}
-					onPlay={(deckId) => {
-						decks[deckId].start();
-					}}
-					onStop={(deckId) => {
-						decks[deckId].stop();
-					}}
-					onCue={(deckId) => {
-						decks[deckId].start();
-					}}
+					onPlay={(deckId) => decks[deckId].start()}
+					onStop={(deckId) => decks[deckId].stop()}
+					onCue={(deckId) => decks[deckId].start()}
 					onJogWheel={(deckId, offset) => {
-						if (deckId === "A" && jogWheelTimeoutA.current) {
-							clearTimeout(jogWheelTimeoutA.current);
-						}
-						if (deckId === "B" && jogWheelTimeoutB.current) {
-							clearTimeout(jogWheelTimeoutB.current);
-						}
-						if (deckId === "A") {
-							setGameState((prev) => ({
-								...prev,
-								deckAJogWheelOffset: offset,
-							}));
-						}
-						if (deckId === "B") {
-							setGameState((prev) => ({
-								...prev,
-								deckBJogWheelOffset: offset,
-							}));
-						}
-
-						const resetJogWheel = () => {
-							if (deckId === "A") {
-								setGameState((prev) => ({ ...prev, deckAJogWheelOffset: 0 }));
-							}
-							if (deckId === "B") {
-								setGameState((prev) => ({ ...prev, deckBJogWheelOffset: 0 }));
-							}
-						};
-
-						const timeoutId = setTimeout(resetJogWheel, 60);
-
-						if (deckId === "A") {
-							jogWheelTimeoutA.current = timeoutId;
-						}
-						if (deckId === "B") {
-							jogWheelTimeoutB.current = timeoutId;
-						}
+						clearTimeout(jogWheelTimeouts.current[deckId]);
+						updateDeck(deckId, { jogWheelOffset: offset });
+						jogWheelTimeouts.current[deckId] = setTimeout(() => {
+							updateDeck(deckId, { jogWheelOffset: 0 });
+						}, 60);
 					}}
 					onCrossfaderChange={handleCrossfaderChange}
 					onRateChange={(deckId, rate) => {
-						const offset =
+						const tempoOffset =
 							Math.round(-rate * gameState.maxBpmVariation * 10) / 10;
-						if (deckId === "A") {
-							setGameState((prev) => ({ ...prev, deckATempoOffset: offset }));
-						}
-						if (deckId === "B") {
-							setGameState((prev) => ({ ...prev, deckBTempoOffset: offset }));
-						}
+						updateDeck(deckId, { tempoOffset });
 					}}
-					onVolumeChange={(deckId, volume) => {
-						if (deckId === "A") {
-							setGameState((prev) => ({ ...prev, deckAVolume: volume }));
-						}
-						if (deckId === "B") {
-							setGameState((prev) => ({ ...prev, deckBVolume: volume }));
-						}
-					}}
+					onVolumeChange={(deckId, volume) => updateDeck(deckId, { volume })}
 					isPlaying={(deckId) => decks[deckId].isPlaying}
 				/>
 
 				{/* DJ Decks */}
 				{gameState.selectedPattern && gameState.phase !== "setup" && (
 					<div className="grid lg:grid-cols-2 gap-6">
-						<Deck
-							deckId="A"
-							maxBpmVariation={gameState.maxBpmVariation}
-							isPlaying={decks.A.isPlaying}
-							jogOffset={gameState.deckAJogWheelOffset}
-							tempo={gameState.deckATempo}
-							tempoOffset={gameState.deckATempoOffset}
-							volume={gameState.deckAVolume}
-							currentBeat={decks.A.currentBeat}
-							pattern={gameState.selectedPattern.pattern}
-							patternName={gameState.selectedPattern.name}
-							onPlay={decks.A.start}
-							onCue={decks.A.start}
-							onStop={decks.A.stop}
-							onTempoOffsetChange={(offset) => {
-								setGameState((prev) => ({ ...prev, deckATempoOffset: offset }));
-							}}
-							onVolumeChange={(volume) => {
-								setGameState((prev) => ({ ...prev, deckAVolume: volume }));
-							}}
-						/>
-
-						<Deck
-							deckId="B"
-							maxBpmVariation={gameState.maxBpmVariation}
-							isPlaying={decks.B.isPlaying}
-							jogOffset={gameState.deckBJogWheelOffset}
-							tempo={gameState.deckBTempo}
-							tempoOffset={gameState.deckBTempoOffset}
-							volume={gameState.deckBVolume}
-							currentBeat={decks.B.currentBeat}
-							pattern={gameState.selectedPattern.pattern}
-							patternName={gameState.selectedPattern.name}
-							isHidden={gameState.phase === "playing"}
-							onPlay={decks.B.start}
-							onCue={decks.B.start}
-							onStop={decks.B.stop}
-							onTempoOffsetChange={(offset) => {
-								setGameState((prev) => ({ ...prev, deckBTempoOffset: offset }));
-							}}
-							onVolumeChange={(volume) => {
-								setGameState((prev) => ({ ...prev, deckBVolume: volume }));
-							}}
-						/>
+						{DECK_IDS.map((deckId) => (
+							<Deck
+								key={deckId}
+								deckId={deckId}
+								maxBpmVariation={gameState.maxBpmVariation}
+								isPlaying={decks[deckId].isPlaying}
+								jogOffset={gameState.decks[deckId].jogWheelOffset}
+								tempo={gameState.decks[deckId].tempo}
+								tempoOffset={gameState.decks[deckId].tempoOffset}
+								volume={gameState.decks[deckId].volume}
+								currentBeat={decks[deckId].currentBeat}
+								pattern={gameState.selectedPattern.pattern}
+								patternName={gameState.selectedPattern.name}
+								isHidden={deckId === "B" && gameState.phase === "playing"}
+								onPlay={decks[deckId].start}
+								onCue={decks[deckId].start}
+								onStop={decks[deckId].stop}
+								onTempoOffsetChange={(tempoOffset) =>
+									updateDeck(deckId, { tempoOffset })
+								}
+								onVolumeChange={(volume) => updateDeck(deckId, { volume })}
+							/>
+						))}
 					</div>
 				)}
 
