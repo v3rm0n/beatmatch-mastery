@@ -6,6 +6,7 @@ import {
 	type BeatPattern,
 	useAudioEngine,
 } from "@/components/audio/AudioEngine";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import {
 	SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { generateRandomTempo } from "@/lib/tempo";
 import { DECK_IDS, type DeckId } from "@/types/deck";
 import { Deck } from "./Deck";
 import { Footer } from "./Footer";
@@ -55,12 +57,6 @@ const INITIAL_STATE: GameState = {
 	maxBpmVariation: 6,
 };
 
-const generateRandomTempo = (baseTempo: number, maxBpmVariation: number) => {
-	const min = Math.max(80, baseTempo - maxBpmVariation);
-	const max = Math.min(180, baseTempo + maxBpmVariation);
-	return Math.round((Math.random() * (max - min) + min) * 10) / 10;
-};
-
 export const BeatmatchApp: React.FC = () => {
 	const { toast } = useToast();
 	const jogWheelTimeouts = useRef<
@@ -87,13 +83,17 @@ export const BeatmatchApp: React.FC = () => {
 	);
 
 	const updateDeck = (deckId: DeckId, changes: Partial<DeckState>) => {
-		setGameState((prev) => ({
-			...prev,
-			decks: {
-				...prev.decks,
-				[deckId]: { ...prev.decks[deckId], ...changes },
-			},
-		}));
+		setGameState((prev) =>
+			prev.phase === "finished"
+				? prev
+				: {
+						...prev,
+						decks: {
+							...prev.decks,
+							[deckId]: { ...prev.decks[deckId], ...changes },
+						},
+					},
+		);
 	};
 
 	useEffect(() => {
@@ -111,7 +111,11 @@ export const BeatmatchApp: React.FC = () => {
 			return;
 		}
 
-		if (deckA.tempo < 60 || deckA.tempo > 200) {
+		if (
+			!Number.isFinite(deckA.tempo) ||
+			deckA.tempo < 60 ||
+			deckA.tempo > 200
+		) {
 			toast({
 				title: "Invalid tempo",
 				description: "Base tempo must be between 60 and 200 BPM.",
@@ -130,16 +134,21 @@ export const BeatmatchApp: React.FC = () => {
 			phase: "playing",
 			decks: {
 				...prev.decks,
-				B: { ...prev.decks.B, tempo: randomTempo },
+				A: { ...prev.decks.A, jogWheelOffset: 0 },
+				B: { ...prev.decks.B, tempo: randomTempo, jogWheelOffset: 0 },
 			},
 			startTime: Date.now(),
 			score: null,
 		}));
 
 		for (const deckId of DECK_IDS) {
-			decks[deckId].setTempo(gameState.decks[deckId].tempo);
+			// Unlock both contexts inside the Start button's browser activation.
+			void decks[deckId].prepare();
+			decks[deckId].setTempo(
+				(deckId === "A" ? deckA.tempo : randomTempo) +
+					gameState.decks[deckId].tempoOffset,
+			);
 			decks[deckId].setPattern(gameState.selectedPattern.pattern);
-			decks[deckId].setVolume(gameState.decks[deckId].volume);
 		}
 
 		toast({
@@ -174,6 +183,8 @@ export const BeatmatchApp: React.FC = () => {
 	const resetSession = () => {
 		decks.A.stop();
 		decks.B.stop();
+		for (const deckId of DECK_IDS)
+			clearTimeout(jogWheelTimeouts.current[deckId]);
 		setGameState(INITIAL_STATE);
 	};
 
@@ -189,7 +200,6 @@ export const BeatmatchApp: React.FC = () => {
 
 	const handleCrossfaderChange = (position: number) => {
 		setGameState((prev) => ({ ...prev, crossfaderPosition: position }));
-		applyCrossfader(deckA.volume, deckB.volume, position);
 	};
 
 	//biome-ignore lint/correctness/useExhaustiveDependencies: Includes everything that applyCrossfader depends on
@@ -296,7 +306,9 @@ export const BeatmatchApp: React.FC = () => {
 
 							<div className="grid md:grid-cols-3 gap-4">
 								<div className="space-y-2">
-									<label className="text-sm font-medium">Beat Pattern</label>
+									<label htmlFor="beat-pattern" className="text-sm font-medium">
+										Beat Pattern
+									</label>
 									<Select
 										value={gameState.selectedPattern.id}
 										onValueChange={(patternId) => {
@@ -305,11 +317,14 @@ export const BeatmatchApp: React.FC = () => {
 											);
 											setGameState((prev) => ({
 												...prev,
-												selectedPattern: pattern || null,
+												selectedPattern: pattern || prev.selectedPattern,
 											}));
 										}}
 									>
-										<SelectTrigger className="[&>span]:line-clamp-none min-h-[2.5rem] h-auto items-start py-2 text-left [&>span]:text-left">
+										<SelectTrigger
+											id="beat-pattern"
+											className="[&>span]:line-clamp-none min-h-[2.5rem] h-auto items-start py-2 text-left [&>span]:text-left"
+										>
 											<SelectValue>
 												{gameState.selectedPattern?.name}
 											</SelectValue>
@@ -330,9 +345,12 @@ export const BeatmatchApp: React.FC = () => {
 								</div>
 
 								<div className="space-y-2">
-									<label className="text-sm font-medium">Base Tempo</label>
+									<label htmlFor="base-tempo" className="text-sm font-medium">
+										Base Tempo
+									</label>
 									<div className="relative">
 										<Input
+											id="base-tempo"
 											type="number"
 											min="60"
 											max="200"
@@ -370,11 +388,15 @@ export const BeatmatchApp: React.FC = () => {
 								</div>
 
 								<div className="space-y-2">
-									<label className="text-sm font-medium">
+									<label
+										htmlFor="tempo-variation"
+										className="text-sm font-medium"
+									>
 										Max tempo variation
 									</label>
 									<div className="relative">
 										<Select
+											value={String(gameState.maxBpmVariation)}
 											onValueChange={(maxBpmVariation) => {
 												setGameState((prev) => ({
 													...prev,
@@ -382,7 +404,7 @@ export const BeatmatchApp: React.FC = () => {
 												}));
 											}}
 										>
-											<SelectTrigger className="pr-12">
+											<SelectTrigger id="tempo-variation" className="pr-12">
 												<SelectValue
 													placeholder={`\u00B1 ${gameState.maxBpmVariation}`}
 												/>
@@ -453,15 +475,33 @@ export const BeatmatchApp: React.FC = () => {
 					</Card>
 				)}
 
+				{(decks.A.error || decks.B.error) && (
+					<Alert variant="destructive">
+						<AlertDescription>
+							{decks.A.error || decks.B.error}
+						</AlertDescription>
+					</Alert>
+				)}
+
 				{/* MIDI Controller */}
 				<MidiController
-					gameStarted={gameState.phase !== "setup"}
-					onPlay={(deckId) => decks[deckId].start()}
+					gameStarted={gameState.phase === "playing"}
+					onPlay={(deckId) => {
+						if (gameState.phase === "playing") void decks[deckId].start();
+					}}
 					onStop={(deckId) => decks[deckId].stop()}
-					onCue={(deckId) => decks[deckId].start()}
+					onCue={(deckId) => {
+						if (gameState.phase === "playing") void decks[deckId].start();
+					}}
 					onJogWheel={(deckId, offset) => {
+						if (!Number.isFinite(offset)) return;
 						clearTimeout(jogWheelTimeouts.current[deckId]);
-						updateDeck(deckId, { jogWheelOffset: offset });
+						updateDeck(deckId, {
+							jogWheelOffset: Math.max(
+								-gameState.maxBpmVariation,
+								Math.min(gameState.maxBpmVariation, offset),
+							),
+						});
 						jogWheelTimeouts.current[deckId] = setTimeout(() => {
 							updateDeck(deckId, { jogWheelOffset: 0 });
 						}, 60);
@@ -474,6 +514,26 @@ export const BeatmatchApp: React.FC = () => {
 					}}
 					onVolumeChange={(deckId, volume) => updateDeck(deckId, { volume })}
 					isPlaying={(deckId) => decks[deckId].isPlaying}
+					getControlValue={(group, key) => {
+						if (group === "[Master]" || group === "[Main]")
+							return key === "crossfader"
+								? gameState.crossfaderPosition * 2 - 1
+								: undefined;
+						const deck =
+							group === "[Channel1]"
+								? deckA
+								: group === "[Channel2]"
+									? deckB
+									: undefined;
+						if (!deck) return undefined;
+						return {
+							volume: deck.volume,
+							rate: -deck.tempoOffset / gameState.maxBpmVariation,
+							jog: deck.jogWheelOffset,
+							bpm: deck.tempo + deck.tempoOffset,
+							rateRange: gameState.maxBpmVariation / deck.tempo,
+						}[key];
+					}}
 				/>
 
 				{/* DJ Decks */}
@@ -493,6 +553,7 @@ export const BeatmatchApp: React.FC = () => {
 								pattern={gameState.selectedPattern.pattern}
 								patternName={gameState.selectedPattern.name}
 								isHidden={deckId === "B" && gameState.phase === "playing"}
+								disabled={gameState.phase === "finished"}
 								onPlay={decks[deckId].start}
 								onCue={decks[deckId].start}
 								onStop={decks[deckId].stop}

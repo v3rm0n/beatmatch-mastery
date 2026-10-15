@@ -16,16 +16,27 @@ const OffsetSlider = React.forwardRef<
 	OffsetSliderProps
 >(
 	(
-		{ className, value, defaultValue, min = -100, max = 100, ...props },
+		{
+			className,
+			value,
+			defaultValue,
+			onValueChange,
+			min = -100,
+			max = 100,
+			...props
+		},
 		ref,
 	) => {
 		// Calculate the center value and percentage
 		const centerValue = (min + max) / 2;
-		const range = max - min;
+		const range = max - min || 1;
 		const centerPercentage = ((centerValue - min) / range) * 100;
 
 		// Get current value (handle both controlled and uncontrolled)
-		const currentValue = value?.[0] ?? defaultValue?.[0] ?? centerValue;
+		const [internalValue, setInternalValue] = React.useState(
+			defaultValue ?? [centerValue],
+		);
+		const currentValue = (value ?? internalValue)[0];
 		const currentPercentage = ((currentValue - min) / range) * 100;
 
 		// Calculate range position and width
@@ -39,8 +50,11 @@ const OffsetSlider = React.forwardRef<
 					"relative flex w-full touch-none select-none items-center",
 					className,
 				)}
-				value={value}
-				defaultValue={defaultValue}
+				value={value ?? internalValue}
+				onValueChange={(next) => {
+					if (value === undefined) setInternalValue(next);
+					onValueChange?.(next);
+				}}
 				min={min}
 				max={max}
 				{...props}
@@ -59,7 +73,10 @@ const OffsetSlider = React.forwardRef<
 					/>
 				</SliderPrimitive.Track>
 
-				<SliderPrimitive.Thumb className="block h-5 w-5 rounded-full border-2 border-primary bg-background ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50" />
+				<SliderPrimitive.Thumb
+					aria-label={props["aria-label"]}
+					className="block h-5 w-5 rounded-full border-2 border-primary bg-background ring-offset-background transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+				/>
 			</SliderPrimitive.Root>
 		);
 	},

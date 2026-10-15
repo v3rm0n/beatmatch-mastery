@@ -7,6 +7,7 @@ export const Footer = () => {
 				<div className="flex flex-col sm:flex-row items-center justify-center gap-4 text-sm text-muted-foreground">
 					<div className="flex items-center gap-2">
 						<a
+							aria-label="Beatmatch Mastery on GitHub"
 							href="https://github.com/v3rm0n/beatmatch-mastery"
 							target="_blank"
 							rel="noopener noreferrer"

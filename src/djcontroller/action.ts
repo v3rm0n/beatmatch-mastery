@@ -45,4 +45,9 @@ export interface PressAction extends BaseAction {
 }
 
 /** An action to take by the DJ application. */
-export type Action = ValueAction | PressAction;
+export interface PlaybackAction extends BaseAction {
+	type: "playback";
+	playing: boolean;
+}
+
+export type Action = ValueAction | PressAction | PlaybackAction;

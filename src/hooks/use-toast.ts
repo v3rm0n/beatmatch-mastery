@@ -1,8 +1,8 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useSyncExternalStore } from "react";
 import type { ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 1;
-const TOAST_REMOVE_DELAY = 1000000;
+const TOAST_REMOVE_DELAY = 1000;
 
 type ToasterToast = ToastProps & {
 	id: string;
@@ -18,11 +18,19 @@ const listeners: Array<(toasts: ToasterToast[]) => void> = [];
 const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
 
 function publish(nextToasts: ToasterToast[]) {
+	const nextIds = new Set(nextToasts.map((toast) => toast.id));
+	for (const [id, timeout] of toastTimeouts) {
+		if (!nextIds.has(id)) {
+			clearTimeout(timeout);
+			toastTimeouts.delete(id);
+		}
+	}
 	toasts = nextToasts;
 	listeners.forEach((listener) => listener(toasts));
 }
 
 function dismiss(toastId: string) {
+	if (!toasts.some((toast) => toast.id === toastId)) return;
 	if (!toastTimeouts.has(toastId)) {
 		toastTimeouts.set(
 			toastId,
@@ -49,6 +57,7 @@ function toast(props: Toast) {
 				id,
 				open: true,
 				onOpenChange: (open: boolean) => {
+					props.onOpenChange?.(open);
 					if (!open) dismiss(id);
 				},
 			},
@@ -57,17 +66,21 @@ function toast(props: Toast) {
 	);
 }
 
+function subscribe(listener: () => void) {
+	const onChange = () => listener();
+	listeners.push(onChange);
+	return () => {
+		const index = listeners.indexOf(onChange);
+		if (index >= 0) listeners.splice(index, 1);
+	};
+}
+
 function useToast() {
-	const [state, setState] = useState(toasts);
-
-	useEffect(() => {
-		listeners.push(setState);
-		return () => {
-			const index = listeners.indexOf(setState);
-			if (index > -1) listeners.splice(index, 1);
-		};
-	}, []);
-
+	const state = useSyncExternalStore(
+		subscribe,
+		() => toasts,
+		() => toasts,
+	);
 	return { toasts: state, toast };
 }
 

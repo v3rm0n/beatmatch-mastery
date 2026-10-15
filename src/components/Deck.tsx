@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import type { DeckId } from "@/types/deck";
 
 interface DeckProps {
+	disabled?: boolean;
 	deckId: DeckId;
 	maxBpmVariation: number;
 	isPlaying: boolean;
@@ -29,6 +30,7 @@ interface DeckProps {
 }
 
 export const Deck: React.FC<DeckProps> = ({
+	disabled = false,
 	deckId,
 	maxBpmVariation,
 	isPlaying,
@@ -47,14 +49,14 @@ export const Deck: React.FC<DeckProps> = ({
 	onVolumeChange,
 }) => {
 	return (
-		<Card className="bg-gradient-deck border-border/50 shadow-deck p-6">
+		<Card className="bg-gradient-deck border-border/50 shadow-deck min-w-0 p-4 sm:p-6">
 			<div className="space-y-6">
 				{/* Deck Header */}
-				<div className="flex items-center justify-between">
-					<div className="flex items-center gap-3">
+				<div className="flex items-center justify-between gap-3">
+					<div className="flex min-w-0 items-center gap-3">
 						<div
 							className={cn(
-								"w-12 h-12 rounded-full flex items-center justify-center text-2xl font-bold",
+								"w-12 h-12 shrink-0 rounded-full flex items-center justify-center text-2xl font-bold",
 								deckId === "A"
 									? "bg-primary text-primary-foreground"
 									: "bg-accent text-accent-foreground",
@@ -62,13 +64,19 @@ export const Deck: React.FC<DeckProps> = ({
 						>
 							{deckId}
 						</div>
-						<div>
+						<div className="min-w-0">
 							<h3 className="text-lg font-semibold">Deck {deckId}</h3>
-							<Badge variant="secondary">{patternName}</Badge>
+							<Badge
+								variant="secondary"
+								className="block max-w-full truncate"
+								title={patternName}
+							>
+								{patternName}
+							</Badge>
 						</div>
 					</div>
 
-					<div className="flex items-center gap-2">
+					<div className="flex shrink-0 items-center gap-2">
 						<Disc3
 							className={cn(
 								"w-8 h-8 transition-transform",
@@ -100,7 +108,9 @@ export const Deck: React.FC<DeckProps> = ({
 									beat
 										? "bg-beat-active border-beat-active"
 										: "bg-beat-inactive border-beat-inactive",
-									currentBeat === index && "ring-2 ring-primary-glow scale-110",
+									isPlaying &&
+										currentBeat === index &&
+										"ring-2 ring-primary-glow scale-110",
 								)}
 							/>
 						))}
@@ -110,19 +120,21 @@ export const Deck: React.FC<DeckProps> = ({
 				{/* Transport Controls */}
 				<div className="flex items-center justify-center gap-4">
 					<Button
+						disabled={disabled}
 						onClick={onCue}
 						variant="secondary"
 						size="lg"
-						className="px-8"
+						className="px-4 sm:px-8"
 					>
 						<SkipBack className="w-5 h-5 mr-2" />
 						Cue
 					</Button>
 					<Button
+						disabled={disabled}
 						onClick={isPlaying ? onStop : onPlay}
 						variant={isPlaying ? "destructive" : "default"}
 						size="lg"
-						className="px-8"
+						className="px-4 sm:px-8"
 					>
 						{isPlaying ? (
 							<Pause className="w-5 h-5 mr-2" />
@@ -146,6 +158,8 @@ export const Deck: React.FC<DeckProps> = ({
 						</div>
 					</div>
 					<OffsetSlider
+						disabled={disabled}
+						aria-label={`Deck ${deckId} tempo offset`}
 						value={[tempoOffset]}
 						onValueChange={(value) => onTempoOffsetChange(value[0])}
 						min={-maxBpmVariation}
@@ -162,6 +176,8 @@ export const Deck: React.FC<DeckProps> = ({
 						<label className="text-sm font-medium">Volume</label>
 					</div>
 					<Slider
+						disabled={disabled}
+						aria-label={`Deck ${deckId} volume`}
 						value={[volume * 100]}
 						onValueChange={(value) => onVolumeChange(value[0] / 100)}
 						min={0}

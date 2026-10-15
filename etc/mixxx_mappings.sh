@@ -1,61 +1,20 @@
 #!/bin/bash
-
-set -e
-
-cd "$(dirname $0)/.."
-
+set -euo pipefail
+cd "$(dirname "$0")/.."
 mkdir -p public
 
-pushd public
-
-if [ -d "controllers" ]; then
-    echo "controllers directory already exists, skipping download"
+if [ ! -d public/controllers ]; then
+    # Publish assets only after copying and manifest generation both succeed.
+    controller_stage=""
+    controller_checkout=$(mktemp -d)
+    trap 'rm -rf "$controller_checkout" "$controller_stage"' EXIT
+    controller_stage=$(mktemp -d ".controllers-stage.XXXXXX")
+    git clone --depth 1 --filter=blob:none --sparse https://github.com/mixxxdj/mixxx.git "$controller_checkout/mixxx"
+    git -C "$controller_checkout/mixxx" sparse-checkout set res/controllers
+    cp -R "$controller_checkout/mixxx/res/controllers/." "$controller_stage"
+    node etc/controller-manifest.mjs "$controller_stage"
+    # rename fails safely if another setup has already published its assets.
+    node -e 'require("node:fs").renameSync(process.argv[1], process.argv[2])' "$controller_stage" public/controllers
 else
-    git clone --depth 1 \
-            --filter blob:none \
-            --sparse \
-            https://github.com/mixxxdj/mixxx.git
-    pushd mixxx
-    git sparse-checkout set res/controllers
-    popd
-
-    cp -R mixxx/res/controllers controllers
-    rm -rf mixxx
+    node etc/controller-manifest.mjs
 fi
-
-# Generate manifest of available controller mappings
-echo "Generating controller mappings manifest..."
-echo '[' > controllers/manifest.json
-first=true
-for file in controllers/*.midi.xml; do
-    if [ -f "$file" ]; then
-        filename=$(basename "$file")
-        xml_name=$(grep -o '<name>[^<]*</name>' "$file" | head -1 | sed 's/<name>//; s/<\/name>//')
-
-        # If no XML name found, use filename without extension as fallback
-        if [ -z "$xml_name" ]; then
-            xml_name="${filename%.midi.xml}"
-        fi
-
-        # Extract controller ID from XML
-        controller_id=$(grep -o '<controller id="[^"]*"' "$file" | sed 's/<controller id="//; s/"//')
-
-        # If no controller ID found, use filename without extension as fallback
-        if [ -z "$controller_id" ]; then
-            controller_id="$xml_name"
-        fi
-
-        if [ "$first" = true ]; then
-            first=false
-        else
-            echo ',' >> controllers/manifest.json
-        fi
-        echo -n "  {\"name\": \"$xml_name\", \"filename\": \"$filename\", \"id\": \"$controller_id\"}" >> controllers/manifest.json
-    fi
-done
-echo '' >> controllers/manifest.json
-echo ']' >> controllers/manifest.json
-
-echo "Generated manifest with $(grep -c '"name"' controllers/manifest.json) controller mappings"
-
-popd

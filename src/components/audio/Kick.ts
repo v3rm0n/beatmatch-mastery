@@ -8,9 +8,14 @@ export class Kick implements Instrument {
 	private gain: GainNode;
 	public volume: number;
 	private distortion: WaveShaperNode;
+	private distortionCurve: Float32Array;
+	private distortionAmount: number;
 	public fxAmount: number;
 
-	constructor(ctx: AudioContext) {
+	constructor(
+		ctx: AudioContext,
+		private readonly destination: AudioNode = ctx.destination,
+	) {
 		this.ctx = ctx;
 		this.tone = 167.1;
 		this.decay = 0.5;
@@ -37,11 +42,15 @@ export class Kick implements Instrument {
 		this.osc.type = "sine";
 		this.gain = this.ctx.createGain();
 		this.distortion = this.ctx.createWaveShaper();
-		this.distortion.curve = this.makeDistortionCurve(this.fxAmount);
+		if (!this.distortionCurve || this.distortionAmount !== this.fxAmount) {
+			this.distortionCurve = this.makeDistortionCurve(this.fxAmount);
+			this.distortionAmount = this.fxAmount;
+		}
+		this.distortion.curve = this.distortionCurve;
 
 		this.osc.connect(this.gain);
 		this.gain.connect(this.distortion);
-		this.distortion.connect(this.ctx.destination);
+		this.distortion.connect(this.destination);
 	}
 
 	trigger(time: number) {
@@ -50,7 +59,8 @@ export class Kick implements Instrument {
 		}
 		this.setup();
 
-		this.osc.frequency.setValueAtTime(this.tone, time + 0.001);
+		this.osc.frequency.setValueAtTime(this.tone, time);
+		this.gain.gain.setValueAtTime(0, time);
 		this.gain.gain.linearRampToValueAtTime(this.volume, time + 0.1);
 
 		this.osc.frequency.exponentialRampToValueAtTime(1, time + this.decay);
@@ -60,6 +70,10 @@ export class Kick implements Instrument {
 		);
 		this.gain.gain.linearRampToValueAtTime(0, time + this.decay + 0.1);
 
+		const nodes = [this.osc, this.gain, this.distortion];
+		this.osc.onended = () => {
+			for (const node of nodes) node.disconnect();
+		};
 		this.osc.start(time);
 
 		this.osc.stop(time + this.decay + 0.1);

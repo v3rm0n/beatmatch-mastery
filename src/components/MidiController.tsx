@@ -26,6 +26,8 @@ interface MidiControllerProps extends MidiControllerCallbacks {
 
 export const MidiController = (props: MidiControllerProps) => {
 	const {
+		mappingError,
+		selectedMapping,
 		midiDevices,
 		midiMapping,
 		midiMappings,
@@ -66,25 +68,12 @@ export const MidiController = (props: MidiControllerProps) => {
 						<AlertDescription>
 							<strong>Web MIDI API not supported</strong>
 							<div className="mt-2 text-sm">
-								Your browser doesn't support Web MIDI API. To use MIDI
-								controllers, please use one of these supported browsers:
-								<ul className="mt-2 ml-4 list-disc space-y-1">
-									<li>
-										<strong>Chrome</strong> version 43 or later
-									</li>
-									<li>
-										<strong>Firefox</strong> version 108 or later
-									</li>
-									<li>
-										<strong>Edge</strong> version 79 or later
-									</li>
-									<li>
-										<strong>Opera</strong> version 30 or later
-									</li>
-								</ul>
+								Your browser doesn't support the Web MIDI API. Use a current
+								browser with Web MIDI support, such as Chrome, Edge, Firefox, or
+								Opera. You can still practice using the on-screen controls.
 								<div className="mt-2 flex items-center gap-1 text-xs">
 									<span>
-										Note: Safari and mobile browsers don't support Web MIDI API.
+										Availability depends on your browser and operating system.
 									</span>
 									<a
 										href="https://caniuse.com/midi"
@@ -101,21 +90,34 @@ export const MidiController = (props: MidiControllerProps) => {
 					</Alert>
 				)}
 
+				{mappingError && (
+					<Alert variant="destructive">
+						<AlertDescription>{mappingError}</AlertDescription>
+					</Alert>
+				)}
+
 				{isSupported && (
 					<>
 						{midiDevices.length > 0 && (
 							<div className="space-y-2">
-								<label className="text-sm font-medium">Select Device</label>
-								<Select onValueChange={handleDeviceSelection}>
-									<SelectTrigger>
+								<label htmlFor="midi-device" className="text-sm font-medium">
+									Select Device
+								</label>
+								<Select
+									value={selectedDevice?.id ?? ""}
+									onValueChange={handleDeviceSelection}
+								>
+									<SelectTrigger id="midi-device">
 										<SelectValue placeholder="Choose a MIDI device" />
 									</SelectTrigger>
 									<SelectContent>
-										{midiDevices.map((device) => (
-											<SelectItem key={device.id} value={device.id}>
-												{device.name} ({device.state})
-											</SelectItem>
-										))}
+										{midiDevices
+											.filter((device) => device.input?.state === "connected")
+											.map((device) => (
+												<SelectItem key={device.id} value={device.id}>
+													{device.name} ({device.state})
+												</SelectItem>
+											))}
 									</SelectContent>
 								</Select>
 							</div>
@@ -131,19 +133,18 @@ export const MidiController = (props: MidiControllerProps) => {
 
 						{selectedDevice && midiMappings.length > 0 && (
 							<div className="space-y-2">
-								<label className="text-sm font-medium">Select Mapping</label>
-								<Select
-									onValueChange={loadMapping}
-									value={midiMapping?.info?.name || null}
-								>
-									<SelectTrigger>
+								<label htmlFor="midi-mapping" className="text-sm font-medium">
+									Select Mapping
+								</label>
+								<Select onValueChange={loadMapping} value={selectedMapping}>
+									<SelectTrigger id="midi-mapping">
 										<SelectValue placeholder="Choose the device type" />
 									</SelectTrigger>
 									<SelectContent>
 										{midiMappings.map((mapping) => (
 											<SelectItem
-												key={mapping.name + mapping.id}
-												value={mapping.name}
+												key={mapping.filename}
+												value={mapping.filename}
 											>
 												{mapping.name}
 											</SelectItem>

@@ -1,10 +1,22 @@
 import type { Config } from "tailwindcss";
+import animate from "tailwindcss-animate";
 
 export default {
-	darkMode: ["class"],
+	darkMode: "class",
 	content: ["./src/**/*.{ts,tsx}"],
 	theme: {
 		extend: {
+			fontFamily: {
+				sans: [
+					"ui-sans-serif",
+					"system-ui",
+					"sans-serif",
+					'"Apple Color Emoji"',
+					'"Segoe UI Emoji"',
+					'"Segoe UI Symbol"',
+					'"Noto Color Emoji"',
+				],
+			},
 			gridTemplateColumns: {
 				"16": "repeat(16, minmax(0, 1fr))",
 			},
@@ -80,5 +92,5 @@ export default {
 			},
 		},
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [animate],
 } satisfies Config;

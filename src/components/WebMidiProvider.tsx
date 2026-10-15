@@ -14,6 +14,7 @@ interface WebMidiContextType {
 	selectDevice: (device: MidiDevice) => void;
 	isConnected: boolean;
 	isSupported: boolean;
+	error: string | null;
 }
 
 const WebMidiContext = createContext<WebMidiContextType | null>(null);
@@ -28,9 +29,12 @@ export const WebMidiProvider: React.FC<WebMidiProviderProps> = ({
 	const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
 	const [selectedDevice, setSelectedDevice] = useState<MidiDevice | null>(null);
 	const [isConnected, setIsConnected] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 	const [isSupported, setIsSupported] = useState(true);
 
 	useEffect(() => {
+		let cancelled = false;
+		let midiAccess: MIDIAccess | null = null;
 		const updateDevices = (access: MIDIAccess) => {
 			const devices: MidiDevice[] = [];
 
@@ -44,7 +48,14 @@ export const WebMidiProvider: React.FC<WebMidiProviderProps> = ({
 			});
 
 			access.outputs.forEach((output) => {
-				const existingDevice = devices.find((d) => d.name === output.name);
+				if (output.state !== "connected") return;
+				const existingDevice = devices.find(
+					(d) =>
+						d.input &&
+						!d.output &&
+						d.name === (output.name || "Unknown Device") &&
+						d.input.manufacturer === output.manufacturer,
+				);
 				if (existingDevice) {
 					existingDevice.output = output;
 				} else {
@@ -57,13 +68,29 @@ export const WebMidiProvider: React.FC<WebMidiProviderProps> = ({
 				}
 			});
 
+			if (cancelled) return;
+			setSelectedDevice((previous) => {
+				if (!previous) return null;
+				const current = devices.find(
+					(device) =>
+						device.id === previous.id && device.input?.state === "connected",
+				);
+				if (!current) return null;
+				return current.input === previous.input &&
+					current.output === previous.output &&
+					current.state === previous.state
+					? previous
+					: current;
+			});
 			setMidiDevices(devices);
-			setIsConnected(devices.some((d) => d.state === "connected"));
+			setIsConnected(devices.some((d) => d.input?.state === "connected"));
 		};
 		const initMidi = async () => {
 			try {
 				if (navigator.requestMIDIAccess) {
 					const access = await navigator.requestMIDIAccess({ sysex: true });
+					if (cancelled) return;
+					midiAccess = access;
 					updateDevices(access);
 
 					access.onstatechange = () => {
@@ -74,11 +101,15 @@ export const WebMidiProvider: React.FC<WebMidiProviderProps> = ({
 					setIsSupported(false);
 				}
 			} catch (error) {
-				console.error("Failed to access MIDI devices:", error);
+				if (!cancelled) setError(`MIDI access failed: ${String(error)}`);
 			}
 		};
 
-		initMidi();
+		void initMidi();
+		return () => {
+			cancelled = true;
+			if (midiAccess) midiAccess.onstatechange = null;
+		};
 	}, []);
 
 	return (
@@ -89,6 +120,7 @@ export const WebMidiProvider: React.FC<WebMidiProviderProps> = ({
 				selectDevice: setSelectedDevice,
 				isConnected,
 				isSupported,
+				error,
 			}}
 		>
 			{children}

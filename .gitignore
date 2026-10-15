@@ -23,3 +23,9 @@ public/controllers
 *.njsproj
 *.sln
 *.sw?
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Interrupted controller asset downloads
+.controllers-stage.*

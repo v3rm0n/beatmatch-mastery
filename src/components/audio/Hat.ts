@@ -12,7 +12,10 @@ export class Hat implements Instrument {
 	public fxAmount: number;
 	private panner: StereoPannerNode;
 
-	constructor(ctx: AudioContext) {
+	constructor(
+		ctx: AudioContext,
+		private readonly destination: AudioNode = ctx.destination,
+	) {
 		this.ctx = ctx;
 		this.ratios = [1, 1.342, 1.2312, 1.6532, 1.9523, 2.1523];
 		this.tone = 130.81;
@@ -35,7 +38,7 @@ export class Hat implements Instrument {
 		this.bndPass.connect(this.hipass);
 		this.hipass.connect(this.oscEnvelope);
 		this.oscEnvelope.connect(this.panner);
-		this.panner.connect(this.ctx.destination);
+		this.panner.connect(this.destination);
 	}
 
 	trigger(time: number) {
@@ -44,11 +47,17 @@ export class Hat implements Instrument {
 		}
 		this.setup();
 		this.panner.pan.value = (Math.cos(time * 4) * this.fxAmount) / 100;
+		const nodes = [this.bndPass, this.hipass, this.oscEnvelope, this.panner];
+		let remaining = this.ratios.length;
 		this.ratios.forEach((ratio) => {
-			var osc = this.ctx.createOscillator();
+			const osc = this.ctx.createOscillator();
 			osc.type = "square";
 			osc.frequency.value = this.tone * ratio;
 			osc.connect(this.bndPass);
+			osc.onended = () => {
+				osc.disconnect();
+				if (--remaining === 0) for (const node of nodes) node.disconnect();
+			};
 			osc.start(time);
 			osc.stop(time + this.decay);
 		});

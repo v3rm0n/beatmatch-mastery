@@ -9,6 +9,7 @@ export class Clap implements Instrument {
 	public decay: number;
 	private pulseWidth: number;
 	private noise: AudioBufferSourceNode;
+	private noiseBuffer: AudioBuffer;
 	private ctx: AudioContext;
 	private filter: BiquadFilterNode;
 	private envelope: GainNode;
@@ -16,7 +17,10 @@ export class Clap implements Instrument {
 	private feedback: GainNode;
 	private echo: DelayNode;
 
-	constructor(ctx: AudioContext) {
+	constructor(
+		ctx: AudioContext,
+		private readonly destination: AudioNode = ctx.destination,
+	) {
 		this.tone = 130;
 		this.volume = 1;
 		this.decay = 0.3;
@@ -27,7 +31,7 @@ export class Clap implements Instrument {
 
 	setup() {
 		this.noise = this.ctx.createBufferSource();
-		this.noise.buffer = createNoiseBuffer(this.ctx);
+		this.noise.buffer = this.noiseBuffer ??= createNoiseBuffer(this.ctx);
 		this.filter = this.ctx.createBiquadFilter();
 		this.filter.type = "bandpass";
 		this.filter.frequency.value = this.tone * 2;
@@ -43,8 +47,8 @@ export class Clap implements Instrument {
 		this.envelope.connect(this.echo);
 		this.echo.connect(this.feedback);
 		this.feedback.connect(this.echo);
-		this.feedback.connect(this.ctx.destination);
-		this.envelope.connect(this.ctx.destination);
+		this.feedback.connect(this.destination);
+		this.envelope.connect(this.destination);
 	}
 
 	trigger = (time: number) => {
@@ -54,19 +58,32 @@ export class Clap implements Instrument {
 		this.setup();
 		this.envelope.gain.setValueAtTime(this.volume, time);
 		this.envelope.gain.exponentialRampToValueAtTime(
-			0.1,
+			0.1 * this.volume,
 			time + this.pulseWidth,
 		);
 
 		this.envelope.gain.setValueAtTime(this.volume, time + this.pulseWidth);
 		this.envelope.gain.exponentialRampToValueAtTime(
-			0.1,
+			0.1 * this.volume,
 			time + 2 * this.pulseWidth,
 		);
 
 		this.envelope.gain.setValueAtTime(this.volume, time + 2 * this.pulseWidth);
-		this.envelope.gain.exponentialRampToValueAtTime(0.001, time + this.decay);
+		this.envelope.gain.exponentialRampToValueAtTime(
+			0.001 * this.volume,
+			time + this.decay,
+		);
 
+		const nodes = [
+			this.noise,
+			this.filter,
+			this.envelope,
+			this.echo,
+			this.feedback,
+		];
+		this.noise.onended = () => {
+			for (const node of nodes) node.disconnect();
+		};
 		this.noise.start(time);
 		this.noise.stop(time + this.decay);
 	};

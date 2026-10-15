@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../tailwind.config.ts";
 
 /* DJ Beatmatching App Design System - Dark, professional DJ aesthetic */
 
@@ -62,6 +61,11 @@
 @layer base {
 	* {
 		@apply border-border;
+	}
+
+	button:not(:disabled),
+	[role="button"]:not(:disabled) {
+		cursor: pointer;
 	}
 
 	body {

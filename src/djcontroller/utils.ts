@@ -43,16 +43,23 @@ export function evalScript(
 	jsSrc: string,
 	args: object = {},
 	returnVarName?: string,
+	localNames: string[] = [],
 ): object {
-	// TODO: Global bindings a la 'varName = ...' still escape.
-	// We should investigate isolating the execution context more
-	// (web workers?) or at least rewrite them using a regex.
 	const argNames = Object.keys(args);
+	const locals = [...new Set(localNames)].filter(
+		(name) => !argNames.includes(name) && /^[A-Za-z_$][\w$]*$/.test(name),
+	);
+	// An outer parameter captures legacy implicit namespace assignments. A block
+	// lets newer scripts declare the same namespace with let or const as well.
 	const script = new Function(
 		...argNames,
-		`${jsSrc}; return ${returnVarName ?? "undefined"};`,
+		...locals,
+		`{\n${jsSrc}; return ${returnVarName ?? "undefined"};\n}`,
 	);
-	return script(...argNames.map((a) => args[a]));
+	return script(
+		...argNames.map((a) => args[a]),
+		...locals.map(() => undefined),
+	);
 }
 
 /**
@@ -62,6 +69,9 @@ export function evalScript(
  * @param keyPath The path into the object
  * @returns The value keyed by this path in `value`
  */
-export function getByKeyPath(value: object, ...keyPath: string[]): () => void {
-	return keyPath.reduce((acc, key) => (acc ? acc[key] : undefined), value);
+export function getByKeyPath<T = unknown>(
+	value: object,
+	...keyPath: string[]
+): T {
+	return keyPath.reduce((acc, key) => (acc ? acc[key] : undefined), value) as T;
 }
